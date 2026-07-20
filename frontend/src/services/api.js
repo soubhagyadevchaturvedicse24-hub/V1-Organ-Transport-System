@@ -34,6 +34,7 @@ export const getDonors = () => fetchApi('/donors');
 export const getOrgans = () => fetchApi('/organs');
 export const getMissions = () => fetchApi('/transport/missions');
 export const verifyLedger = () => fetchApi('/audit/verify');
+export const getEntityHistory = (type, id) => fetchApi(`/audit/entity/${type}/${id}`);
 
 export const getMatches = () => {
   // In a real app we'd fetch actual pending matches from an endpoint.
@@ -102,4 +103,28 @@ export const getDashboardKPIs = async () => {
     console.error('Failed to fetch KPIs:', error);
     throw error;
   }
+};
+
+export const getLiveMission = () => {
+  // Mock data for the live transport map to demonstrate the UI
+  // In a real app, this would be populated from the backend and updated via WebSocket
+  return Promise.resolve({
+    id: 'TRN-2026-001',
+    boxId: 'BOX-101',
+    origin: { name: 'AIIMS New Delhi', lat: 28.5659, lng: 77.2090 },
+    destination: { name: 'Tata Memorial Mumbai', lat: 19.0069, lng: 72.8427 },
+    currentLocation: { lat: 23.0, lng: 75.0 }, // Somewhere in between
+    telemetry: {
+      temperature: 4.2,
+      tempTrend: 'stable',
+      battery: 88,
+      batteryTrend: 'decreasing',
+      eta: '2h 15m'
+    },
+    health: {
+      status: 'NORMAL',
+      score: 100,
+      reasons: []
+    }
+  });
 };

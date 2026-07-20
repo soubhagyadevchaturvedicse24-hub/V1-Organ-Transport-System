@@ -2,11 +2,9 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import DashboardLayout from './layouts/DashboardLayout';
 import ExecutiveOverview from './pages/ExecutiveOverview';
 import MatchingQueue from './pages/MatchingQueue';
+import TransportMap from './pages/TransportMap';
+import BlockchainAudit from './pages/BlockchainAudit';
 import './App.css';
-
-// Placeholder Pages
-const TransportMap = () => <div className="page-container"><h1 className="gradient-text">Live Transport</h1></div>;
-const BlockchainTimeline = () => <div className="page-container"><h1 className="gradient-text">Blockchain Audit</h1></div>;
 
 function App() {
   return (
@@ -17,7 +15,7 @@ function App() {
           <Route path="overview" element={<ExecutiveOverview />} />
           <Route path="matching" element={<MatchingQueue />} />
           <Route path="transport" element={<TransportMap />} />
-          <Route path="audit" element={<BlockchainTimeline />} />
+          <Route path="audit" element={<BlockchainAudit />} />
         </Route>
       </Routes>
     </Router>
