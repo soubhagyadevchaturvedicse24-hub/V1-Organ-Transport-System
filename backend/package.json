@@ -24,6 +24,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "mongodb-memory-server": "^11.2.0",
     "vitest": "^4.1.10"
   }
 }
