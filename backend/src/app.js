@@ -5,6 +5,7 @@ import healthRoute from './health/health.route.js';
 
 import authRoute from './auth/routes/auth.route.js';
 import cookieParser from 'cookie-parser';
+import { errorHandler } from './middleware/errorHandler.js';
 
 const app = express();
 
@@ -24,5 +25,7 @@ app.get('/', (req, res) => {
 
 app.use('/api/v1/auth', authRoute);
 app.use('/api/v1', healthRoute);
+
+app.use(errorHandler);
 
 export default app;
