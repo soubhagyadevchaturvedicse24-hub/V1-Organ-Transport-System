@@ -58,7 +58,7 @@ All features are reviewed and merged into `develop` using a `--no-ff` strategy.
 | `v0.4.0-donor` | Sprint 4 — Donor Module | ✅ Complete |
 | `v0.5.0-organ` | Sprint 5 — Recipient & Organ Module | ✅ Complete |
 | `v0.6.0-matching` | Sprint 6 — Matching Engine | ✅ Complete |
-| — | Sprint 7 — IoT Simulator | ⬜ Pending |
+| `v0.7.0-transport`| Sprint 7 — Transport & IoT Simulator | ✅ Complete |
 | — | Sprint 8 — Dashboard UI | ⬜ Pending |
 | — | Sprint 9 — Blockchain Integration | ⬜ Pending |
 | — | Sprint 10 — Testing & Production Readiness | ⬜ Pending |
@@ -70,7 +70,7 @@ All features are reviewed and merged into `develop` using a `--no-ff` strategy.
 - [x] **Sprint 4:** Donor Module (`v0.4.0-donor`)
 - [x] **Sprint 5:** Organ Module (`v0.5.0-organ`)
 - [x] **Sprint 6:** Matching Algorithm (`v0.6.0-matching`)
-- [ ] **Sprint 7:** Simulator
+- [x] **Sprint 7:** Transport & IoT Simulator (`v0.7.0-transport`)
 - [ ] **Sprint 8:** Dashboard UI
 - [ ] **Sprint 9:** Blockchain Integration
 - [ ] **Sprint 10:** Test/Demo
