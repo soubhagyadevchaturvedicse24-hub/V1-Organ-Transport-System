@@ -1,0 +1,29 @@
+meta {
+  name: Post Telemetry
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/v1/device/telemetry
+  body: json
+  auth: none
+}
+
+headers {
+  x-device-id: BOX-001
+  x-device-secret: secret123
+}
+
+body:json {
+  {
+    "missionId": "60d21b4667d0d8992e610c8b",
+    "temperature": 5.0,
+    "batteryLevel": 85.0,
+    "geoLocation": {
+      "type": "Point",
+      "coordinates": [77.2090, 28.6139]
+    },
+    "isTampered": false
+  }
+}

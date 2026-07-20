@@ -1,0 +1,27 @@
+meta {
+  name: Create Mission
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/v1/transport/missions
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "missionId": "TRN-001",
+    "organId": "60d21b4667d0d8992e610c85",
+    "matchId": "60d21b4667d0d8992e610c86",
+    "boxId": "60d21b4667d0d8992e610c87",
+    "courierId": "60d21b4667d0d8992e610c88",
+    "originHospital": "60d21b4667d0d8992e610c89",
+    "destinationHospital": "60d21b4667d0d8992e610c8a"
+  }
+}
