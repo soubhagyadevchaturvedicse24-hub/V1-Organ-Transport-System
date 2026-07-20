@@ -1,0 +1,22 @@
+meta {
+  name: Register Organ
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/v1/organs
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "donorId": "DONOR_ID_HERE",
+    "organType": "KIDNEY"
+  }
+}

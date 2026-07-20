@@ -107,4 +107,40 @@ export const DONOR_ERRORS = Object.freeze({
     message: 'Rejection reason is required',
     status: 400,
   },
+  INVALID_STATUS_FOR_ORGAN: {
+    code: 'DONOR_004',
+    message: 'Cannot create organ from donor in current status. Must be AVAILABLE or COMPLETED.',
+    status: 409,
+  },
+});
+
+/**
+ * Organ Domain Error Codes
+ */
+export const ORGAN_ERRORS = Object.freeze({
+  NOT_FOUND: {
+    code: 'ORGAN_001',
+    message: 'Organ not found',
+    status: 404,
+  },
+  IMMUTABLE_STATUS: {
+    code: 'ORGAN_002',
+    message: 'Organ identity cannot be updated outside of assessment window',
+    status: 409,
+  },
+  DISCARD_REASON_REQUIRED: {
+    code: 'ORGAN_003',
+    message: 'Discard reason is required',
+    status: 400,
+  },
+  TRANSPORT_BOX_REQUIRED: {
+    code: 'ORGAN_004',
+    message: 'Transport Box ID is required to dispatch',
+    status: 400,
+  },
+  ALLOCATION_REQUIRED: {
+    code: 'ORGAN_005',
+    message: 'Target hospital is required for allocation',
+    status: 400,
+  },
 });
