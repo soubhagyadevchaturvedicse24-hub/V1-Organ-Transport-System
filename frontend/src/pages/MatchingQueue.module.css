@@ -1,0 +1,210 @@
+.header {
+  margin-bottom: var(--space-4);
+}
+
+.header h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: var(--space-1);
+}
+
+.subtitle {
+  color: var(--text-secondary);
+  font-size: 1rem;
+}
+
+.loader {
+  color: var(--text-secondary);
+  font-size: 1.25rem;
+  text-align: center;
+  padding: var(--space-12);
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-12);
+  color: var(--text-secondary);
+  background: var(--glass-bg);
+  border-radius: var(--radius-xl);
+  border: 1px dashed var(--glass-border);
+}
+
+.emptyIcon {
+  color: var(--text-tertiary);
+  margin-bottom: var(--space-4);
+}
+
+.emptyState h3 {
+  font-size: 1.25rem;
+  color: var(--text-primary);
+  margin-bottom: var(--space-2);
+}
+
+.queueList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.matchCard {
+  overflow: hidden;
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  padding: var(--space-4) var(--space-6);
+  cursor: pointer;
+  transition: background-color var(--duration-fast) ease;
+}
+
+.cardHeader:hover {
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+.matchScore {
+  margin-right: var(--space-6);
+}
+
+.scoreCircle {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 3px solid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  font-weight: 700;
+  background-color: rgba(0,0,0,0.2);
+}
+
+.matchDetails {
+  flex: 1;
+}
+
+.matchDetails h3 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin-bottom: var(--space-1);
+}
+
+.matchEntities {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.matchEntities strong {
+  color: var(--text-primary);
+}
+
+.separator {
+  color: var(--text-tertiary);
+}
+
+.expandToggle {
+  color: var(--text-tertiary);
+}
+
+.expandedContent {
+  border-top: 1px solid var(--glass-border);
+  padding: var(--space-4) var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  background-color: rgba(0, 0, 0, 0.2);
+}
+
+.compatibilitySection h4,
+.reasoningSection h4 {
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-3);
+}
+
+.matrix {
+  display: flex;
+  gap: var(--space-4);
+}
+
+.matrixItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  background-color: rgba(255, 255, 255, 0.05);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+}
+
+.iconSuccess {
+  color: var(--status-normal);
+}
+
+.iconDanger {
+  color: var(--status-critical);
+}
+
+.textValue {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.reasoningList {
+  list-style-position: inside;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.reasoningList li::marker {
+  color: var(--accent-primary);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-4);
+  margin-top: var(--space-2);
+}
+
+.btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-6);
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: 0.875rem;
+  transition: all var(--duration-fast) ease;
+}
+
+.btnDecline {
+  background-color: transparent;
+  color: var(--text-primary);
+  border: 1px solid var(--glass-border);
+}
+
+.btnDecline:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.btnApprove {
+  background-color: var(--accent-primary);
+  color: #000;
+}
+
+.btnApprove:hover {
+  background-color: #22c55e;
+  box-shadow: var(--shadow-glow);
+}

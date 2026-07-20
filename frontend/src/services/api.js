@@ -35,6 +35,51 @@ export const getOrgans = () => fetchApi('/organs');
 export const getMissions = () => fetchApi('/transport/missions');
 export const verifyLedger = () => fetchApi('/audit/verify');
 
+export const getMatches = () => {
+  // In a real app we'd fetch actual pending matches from an endpoint.
+  // We'll mock it here to ensure the UI can be built and demonstrated if backend is not seeded.
+  return Promise.resolve([
+    {
+      _id: 'MAT-1',
+      organId: 'ORG-KID-001',
+      recipientId: 'REC-2026-001',
+      score: 95,
+      status: 'pending',
+      compatibility: {
+        bloodTypeMatch: true,
+        hlaMatchCount: 5,
+        sizeMatch: true,
+      },
+      reasoning: [
+        'Perfect ABO compatibility.',
+        '5/6 HLA match indicates very low rejection risk.',
+        'Recipient urgency is high (Score: 85).'
+      ]
+    },
+    {
+      _id: 'MAT-2',
+      organId: 'ORG-LIV-002',
+      recipientId: 'REC-2026-005',
+      score: 72,
+      status: 'pending',
+      compatibility: {
+        bloodTypeMatch: true,
+        hlaMatchCount: 3,
+        sizeMatch: false,
+      },
+      reasoning: [
+        'ABO compatible.',
+        '3/6 HLA match is acceptable but not optimal.',
+        'Slight size mismatch (organ is larger than ideal for recipient).'
+      ]
+    }
+  ]);
+};
+
+export const updateMatchStatus = (matchId, action) => {
+  return fetchApi(`/matching/${matchId}/${action}`, { method: 'POST' });
+};
+
 export const getDashboardKPIs = async () => {
   try {
     // We run these in parallel
