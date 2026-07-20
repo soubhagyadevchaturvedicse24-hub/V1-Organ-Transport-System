@@ -1,4 +1,4 @@
-import { createStateMachine } from '../stateMachine.js';
+import { createStateMachine } from '../index.js';
 
 /**
  * Hospital Workflow Transition Map

@@ -9,9 +9,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { createStateMachine } from '../src/workflow/stateMachine.js';
+import { createStateMachine, WORKFLOW_ERRORS } from '../src/workflow/index.js';
 import { hospitalMachine, HOSPITAL_TRANSITIONS } from '../src/workflow/transitions/hospital.transitions.js';
-import { WORKFLOW_ERRORS } from '../src/constants/errorCodes.js';
 
 // ─── Controlled test transition map ──────────────────────────────────────────
 const TEST_TRANSITIONS = Object.freeze({
