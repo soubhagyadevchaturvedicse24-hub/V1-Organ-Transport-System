@@ -2,7 +2,8 @@ import { AUTH_ERRORS } from '../constants/errorCodes.js';
 import { HOSPITAL_PERMISSIONS } from '../permissions/hospital.permissions.js';
 import { ORGAN_PERMISSIONS } from '../permissions/organ.permissions.js';
 import { TRANSPORT_PERMISSIONS } from '../permissions/transport.permissions.js';
-import { AUDIT_PERMISSIONS, DONOR_PERMISSIONS } from '../permissions/domain.permissions.js';
+import { AUDIT_PERMISSIONS } from '../permissions/domain.permissions.js';
+import { DONOR_PERMISSIONS } from '../permissions/donor.permissions.js';
 import logger from '../logger/index.js';
 
 /**
@@ -31,6 +32,9 @@ const ROLE_PERMISSIONS = Object.freeze({
     HOSPITAL_PERMISSIONS.APPROVE,
     HOSPITAL_PERMISSIONS.REJECT,
     DONOR_PERMISSIONS.VIEW,
+    DONOR_PERMISSIONS.VERIFY_CONSENT,
+    DONOR_PERMISSIONS.ACTIVATE,
+    DONOR_PERMISSIONS.ARCHIVE,
     TRANSPORT_PERMISSIONS.VIEW_MISSION,
     AUDIT_PERMISSIONS.VIEW,
   ],
@@ -47,12 +51,17 @@ const ROLE_PERMISSIONS = Object.freeze({
     HOSPITAL_PERMISSIONS.SUBMIT,
     DONOR_PERMISSIONS.CREATE,
     DONOR_PERMISSIONS.VIEW,
+    DONOR_PERMISSIONS.UPDATE,
+    DONOR_PERMISSIONS.SUBMIT,
+    DONOR_PERMISSIONS.MEDICAL_REVIEW,
+    DONOR_PERMISSIONS.VERIFY_CONSENT,
+    DONOR_PERMISSIONS.ACTIVATE,
     TRANSPORT_PERMISSIONS.VIEW_MISSION,
   ],
   TRANSPLANT_SURGEON: [
     HOSPITAL_PERMISSIONS.VIEW,
-    DONOR_PERMISSIONS.CREATE,
     DONOR_PERMISSIONS.VIEW,
+    DONOR_PERMISSIONS.MEDICAL_REVIEW,
     ORGAN_PERMISSIONS.VIEW,
     ORGAN_PERMISSIONS.MATCH,
     TRANSPORT_PERMISSIONS.VIEW_MISSION,

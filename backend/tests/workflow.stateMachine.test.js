@@ -9,9 +9,9 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { createStateMachine } from '../src/workflow/stateMachine.js';
+import { createStateMachine, WORKFLOW_ERRORS } from '../src/workflow/index.js';
 import { hospitalMachine, HOSPITAL_TRANSITIONS } from '../src/workflow/transitions/hospital.transitions.js';
-import { WORKFLOW_ERRORS } from '../src/constants/errorCodes.js';
+import { donorMachine, DONOR_TRANSITIONS } from '../src/workflow/transitions/donor.transitions.js';
 
 // ─── Controlled test transition map ──────────────────────────────────────────
 const TEST_TRANSITIONS = Object.freeze({
@@ -202,3 +202,59 @@ describe('hospitalMachine — real transition map', () => {
     expect(hospitalMachine.canTransition('DEACTIVATED', 'reactivate')).toBe(false);
   });
 });
+
+// ─── Donor Machine: real transition map ────────────────────────────────────────
+describe('donorMachine — real transition map', () => {
+  it('DRAFT → submit → PENDING_MEDICAL_REVIEW', () => {
+    expect(donorMachine.transition('DRAFT', 'submit')).toBe('PENDING_MEDICAL_REVIEW');
+  });
+
+  it('PENDING_MEDICAL_REVIEW → medicalReview → MEDICALLY_ELIGIBLE', () => {
+    expect(donorMachine.transition('PENDING_MEDICAL_REVIEW', 'medicalReview')).toBe('MEDICALLY_ELIGIBLE');
+  });
+
+  it('MEDICALLY_ELIGIBLE → verifyConsent → CONSENT_VERIFIED', () => {
+    expect(donorMachine.transition('MEDICALLY_ELIGIBLE', 'verifyConsent')).toBe('CONSENT_VERIFIED');
+  });
+
+  it('CONSENT_VERIFIED → activate → AVAILABLE', () => {
+    expect(donorMachine.transition('CONSENT_VERIFIED', 'activate')).toBe('AVAILABLE');
+  });
+
+  it('AVAILABLE → complete → COMPLETED', () => {
+    expect(donorMachine.transition('AVAILABLE', 'complete')).toBe('COMPLETED');
+  });
+
+  it('AVAILABLE → archive → ARCHIVED', () => {
+    expect(donorMachine.transition('AVAILABLE', 'archive')).toBe('ARCHIVED');
+  });
+
+  it('CONSENT_VERIFIED → withdraw → WITHDRAWN', () => {
+    expect(donorMachine.transition('CONSENT_VERIFIED', 'withdraw')).toBe('WITHDRAWN');
+  });
+
+  it('PENDING_MEDICAL_REVIEW → reject → REJECTED', () => {
+    expect(donorMachine.transition('PENDING_MEDICAL_REVIEW', 'reject')).toBe('REJECTED');
+  });
+
+  it('MEDICALLY_ELIGIBLE → reject → REJECTED', () => {
+    expect(donorMachine.transition('MEDICALLY_ELIGIBLE', 'reject')).toBe('REJECTED');
+  });
+
+  it('COMPLETED → (anything) → throws WORKFLOW_002', () => {
+    const actions = Object.keys(DONOR_TRANSITIONS);
+    actions.forEach((action) => {
+      expect(() => donorMachine.transition('COMPLETED', action)).toThrow(
+        expect.objectContaining({ code: WORKFLOW_ERRORS.INVALID_TRANSITION.code })
+      );
+    });
+  });
+
+  it('getAllowedActions returns correct set for PENDING_MEDICAL_REVIEW', () => {
+    const actions = donorMachine.getAllowedActions('PENDING_MEDICAL_REVIEW');
+    expect(actions).toContain('medicalReview');
+    expect(actions).toContain('reject');
+    expect(actions).toHaveLength(2);
+  });
+});
+

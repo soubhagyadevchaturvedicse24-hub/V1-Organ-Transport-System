@@ -1,0 +1,15 @@
+meta {
+  name: List Donors
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/v1/donors
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
