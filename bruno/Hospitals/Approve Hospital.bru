@@ -1,0 +1,15 @@
+meta {
+  name: Approve Hospital
+  type: http
+  seq: 4
+}
+
+post {
+  url: http://localhost:3000/api/v1/hospitals/{{hospitalId}}/approve
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}

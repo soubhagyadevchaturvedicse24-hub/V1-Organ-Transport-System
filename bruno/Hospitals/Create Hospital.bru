@@ -1,0 +1,36 @@
+meta {
+  name: Create Hospital
+  type: http
+  seq: 1
+}
+
+post {
+  url: http://localhost:3000/api/v1/hospitals
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "name": "Apollo Hospitals Delhi",
+    "registrationNumber": "DL-HOS-2024-001",
+    "hospitalType": "PRIVATE",
+    "nabh": true,
+    "transplantCapabilities": ["KIDNEY", "LIVER"],
+    "address": {
+      "street": "Sarita Vihar, Mathura Road",
+      "city": "Delhi",
+      "state": "Delhi",
+      "pincode": "110076"
+    },
+    "contact": {
+      "phone": "9876543210",
+      "email": "contact@apollodelhi.com",
+      "website": "https://apollodelhi.com"
+    }
+  }
+}
