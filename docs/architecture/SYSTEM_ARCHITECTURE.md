@@ -1,7 +1,7 @@
 # System Architecture Document
 ## Blockchain-Enabled Human Organ Transplantation & Smart Organ Transport Platform
 
-This document details the software architecture, system design, and engineering rationale for the Blockchain-Enabled Human Organ Transplantation & Smart Organ Transport Platform.
+This document details the software architecture, domain services, system diagrams, and engineering rationale for the Blockchain-Enabled Human Organ Transplantation & Smart Organ Transport Platform.
 
 ---
 
@@ -10,8 +10,8 @@ The procurement and transportation of human organs for transplantation is a high
 
 This platform provides an end-to-end, enterprise-grade solution that integrates:
 *   A **React/Vite Frontend** for real-time visualization and role-based operational management.
-*   A **Node.js/Express Backend** acting as the central orchestrator and data aggregator.
-*   A **MongoDB Database** for low-latency storage of operational, relational, and non-repudiation-insensitive application states.
+*   A **Domain-Driven Modular Backend API Gateway** that orchestrates specialized business microservices.
+*   A **MongoDB Database** for low-latency storage of operational, relational, and telemetry application states.
 *   A **Hyperledger Fabric Blockchain Network** acting as an immutable audit trail and state machine to guarantee compliance with allocation rules (e.g., THOTA guidelines) and prevent tampering.
 *   An **ESP32-based Smart Organ Transport Box** providing continuous tracking of environmental parameters (temperature, GPS location, box tampering, battery, and RFID access verification).
 
@@ -29,28 +29,40 @@ By combining these technologies, the system minimizes human error, prevents illi
 ---
 
 ## 3. High-Level Architecture
-The system employs a multi-tiered architecture structured around clear separation of concerns, scalability, and physical boundaries:
+The system employs a domain-driven modular architecture structured around clear separation of concerns, scalability, and physical boundaries:
 
 ```mermaid
 graph TD
-    User([Users / Hospital Staff]) -->|HTTPS / WSS| FE[React Frontend]
-    FE -->|API Calls / Websockets| BE[Node.js + Express Backend]
-    BE -->|Mongoose ODM| DB[(MongoDB)]
-    BE -->|Fabric SDK / gRPC| BC[Hyperledger Fabric Blockchain]
+    User([Users / Hospital Staff]) -->|HTTPS / WSS| FE[React Frontend Dashboard]
+    FE -->|API Gateway Interface| AG[API Gateway]
     
-    IoT[ESP32 Smart Transport Box] -->|HTTPS POST / MQTT| BE
-    
-    subgraph Storage Tier
-        DB
-        BC
+    subgraph Core Platform Services
+        AG --> HS[Hospital Service]
+        AG --> OS[Organ Service]
+        AG --> TS[Transport Service]
+        AG --> MS[Matching Engine Service]
+        AG --> BS[Blockchain Service]
+        AG --> NS[Notification Service]
+        AG --> IS[IoT Gateway Service]
     end
+    
+    HS --> DB[(MongoDB)]
+    OS --> DB
+    TS --> DB
+    MS --> DB
+    NS --> DB
+    IS --> DB
+    
+    BS --> BC[Hyperledger Fabric Blockchain]
+    
+    IoT[ESP32 Smart Transport Box] -->|HTTPS POST / MQTT| IS
 ```
 
 ### Architectural Rationale
-*   **Decoupled Frontend/Backend**: Splitting React from Node.js enables independent deployments, caching of static assets on CDNs, and allows the backend to serve as a pure headless API serving both the dashboard and IoT devices.
-*   **Dual-Database Hybrid Strategy**: 
-    *   *Off-chain (MongoDB)*: Handles fast-read, high-write data (like raw GPS and temperature coordinates, session details, notifications) which would otherwise overwhelm blockchain consensus mechanisms.
-    *   *On-chain (Hyperledger Fabric)*: Restricts storage to cryptographic signatures, hash pointer links, allocation order, donor/recipient matching records, and audit events. This maintains ledger compactness and conforms to privacy standards (e.g., GDPR's Right to Be Forgotten) by keeping Personally Identifiable Information (PII) off the ledger.
+*   **API Gateway Pattern**: Decouples the client dashboard from internal business logic services. This allows logging, rate limiting, and RBAC to be handled at a single entry point while the backend routes traffic to specialized services.
+*   **Domain Service Separation**: Dividing business logic into specialized modules (Hospital, Organ, Matching, Transport, Blockchain, Notification, IoT Gateway) prevents code bloat and allows services to scale independently.
+*   **IoT Gateway Abstraction**: Interfacing the ESP32 with a dedicated IoT Gateway Service isolates hardware communication protocols. If the system shifts from WiFi/HTTPS to MQTT brokers, only the IoT Gateway is changed, leaving core Express logic untouched.
+*   **Blockchain Service Isolation**: An isolated Blockchain Service wraps all Hyperledger Fabric SDK transactions, shielding the rest of the application from gRPC configuration details and chaincode call structures.
 
 ---
 
@@ -63,10 +75,19 @@ graph LR
         Tailwind[Tailwind CSS & shadcn/ui]
     end
 
-    subgraph Logic Tier
-        Express[Express.js App]
+    subgraph Gateway Tier
+        AG[API Gateway]
         SocketIO[Socket.IO Gateway]
-        Auth[JWT Manager]
+    end
+
+    subgraph Service Tier
+        HS[Hospital Service]
+        OS[Organ Service]
+        MS[Matching Service]
+        TS[Transport Service]
+        BS[Blockchain Service]
+        NS[Notification Service]
+        IS[IoT Gateway Service]
     end
 
     subgraph IoT Tier
@@ -79,19 +100,14 @@ graph LR
         HLF[Hyperledger Fabric Peers & CA]
     end
 
-    React <-->|REST API / JWT| Express
+    React <-->|REST API / JWT| AG
     React <-->|WebSocket| SocketIO
-    ESP32 -->|REST / HTTPS| Express
-    Express -->|Mongoose| Mongo
-    Express -->|Fabric Node SDK| HLF
+    ESP32 -->|HTTPS / MQTT| IS
+    AG --> HS & OS & MS & TS & BS & NS & IS
+    HS & OS & MS & TS & NS & IS -->|Mongoose| Mongo
+    BS -->|Fabric Node SDK| HLF
+    SocketIO <--> NS
 ```
-
-### Component Details
-1.  **Presentation Component**: Builds on React to render interactive dashboards. React Router handles client-side page routing. Tailwind CSS and `shadcn/ui` supply standard accessibility components.
-2.  **Orchestration Component**: Node.js utilizing Express.js. Acts as the Single Point of Contact (SPOC) for client requests, validation rules, and interfacing with external SDKs (MongoDB Mongoose, Hyperledger SDK).
-3.  **Real-Time Data Broker**: Socket.IO handles live duplex connections, piping active transport location updates directly from the IoT telemetry service to the active frontend map component.
-4.  **Ledger Component**: Hyperledger Fabric peers maintain the channel state, executing Chaincode written in Go or TypeScript to handle critical state transitions.
-5.  **Hardware Monitor (IoT)**: An ESP32 microcontroller that polls sensors at a regular frequency, aggregates messages, and executes encrypted payload transfers to the backend.
 
 ---
 
@@ -113,18 +129,20 @@ The frontend is constructed using **Vite** as the build tool for near-instant de
 ---
 
 ## 6. Backend Architecture
-The backend application follows a standard layered architecture pattern to keep application logic decoupled from HTTP request frameworks.
+The backend application follows a domain-driven modular structure, splitting the application logic into logical controllers and service layers:
 
 ```
-Request ──> Router ──> Middleware (Auth/RBAC) ──> Controller ──> Service ──> Data Tier (DB/Fabric)
+Request ──> API Gateway ──> Route Handler ──> Controller ──> Service Layer ──> Persistence Tier
 ```
 
-### Architectural Layers
-1.  **Routing Layer (`/routes`)**: Maps endpoints to designated controller methods. Strictly handles URL parameters and simple query-string parser routing.
-2.  **Controller Layer (`/controllers`)**: Sanitizes HTTP input payloads, delegates business workflows to the services layer, and structures standardized HTTP responses.
-3.  **Services Layer (`/services`)**: Contains the core business rules of the platform (e.g., logic matching algorithms, blockchain interface queries). It remains independent of Express Request/Response objects.
-4.  **Models Layer (`/models`)**: Defines Mongoose Schemas representing backend databases.
-5.  **Blockchain Layer (`/blockchain`)**: Contains wrapper functions using the official Fabric SDK to build, sign, and submit transactions to the Peer network.
+### Architectural Services
+1.  **Hospital Service**: Handles directory listings, status indicators, and hospital profiles.
+2.  **Organ Service**: Manages inventory details, anatomical profiles, and organ viability state.
+3.  **Matching Engine Service**: Executes compatibility and priority queues using clinical parameters and coordinates matching workflows.
+4.  **Transport Service**: Coordinates active transport routes, schedules couriers, and links sessions to physical tracking boxes.
+5.  **Blockchain Service**: Exclusively manages Hyperledger Fabric SDK transactions, peer queries, consensus confirmations, and certificate generation.
+6.  **Notification Service**: Handles real-time system alerts, in-app alerts, and SMS/Email messaging interfaces.
+7.  **IoT Gateway Service**: Manages ESP32 security handshakes, raw telemetry aggregation, sensor parsing, and ring-buffer data synchronization.
 
 ---
 
@@ -145,23 +163,6 @@ The system uses **MongoDB** as its relational-like transactional store.
 ## 8. Blockchain Responsibilities
 The **Hyperledger Fabric (HLF)** blockchain functions as the Single Source of Truth for system transitions that demand legal auditability and cryptographic trust.
 
-```
-       [Hospital registers request] 
-                    │ (Transaction 1: Record Match Entry)
-                    ▼
-           [Organ matching run] 
-                    │ (Transaction 2: Algorithm Proof & Final Priority Queue)
-                    ▼
-            [Transport start] 
-                    │ (Transaction 3: Cryptographic Handshake by RFID)
-                    ▼
-        [Active sensor boundaries] 
-                    │ (Transaction 4: Final transit report / cold-chain audit)
-                    ▼
-           [Organ delivery] 
-                    │ (Transaction 5: Final recipient sign-off)
-```
-
 ### Ledger vs. Database Split
 | Parameter / Field | Database (MongoDB) | Blockchain (Hyperledger Fabric) |
 | :--- | :--- | :--- |
@@ -179,20 +180,6 @@ The **Hyperledger Fabric (HLF)** blockchain functions as the Single Source of Tr
 ## 9. IoT Responsibilities
 The **ESP32** transport box acts as an edge-computing sentinel. It monitors the environment and ensures physical package security.
 
-```
-                               ┌─────────────┐
-                               │    ESP32    │
-                               └──────┬──────┘
-                                      │
-            ┌─────────────────────────┼─────────────────────────┐
-            │                         │                         │
-      ┌─────▼─────┐             ┌─────▼─────┐             ┌─────▼─────┐
-      │  Sensors  │             │ Security  │             │ Indicators│
-      └───────────┘             └───────────┘             └───────────┘
-     - Temp (DS18B20)         - RFID (RC522)            - Buzzer (Alarm)
-     - GPS (NEO-6M)           - Reed Switch (Tamper)    - RGB Status LEDs
-```
-
 ### Microcontroller System Flow
 1.  **Sensor Polling Loop**: Reads temp, GPS, and tamper state every 5 seconds.
 2.  **Local Memory Buffer**: In the event of a cellular or Wi-Fi drop, telemetry is stored in the ESP32's non-volatile flash storage using a ring-buffer algorithm to prevent data loss.
@@ -207,36 +194,26 @@ Communication protocols are selected to match bandwidth, latency, and power cons
 ```mermaid
 sequenceDiagram
     participant IoT as ESP32 Transport Box
-    participant BE as Node.js Backend
-    participant FE as React Dashboard
-    participant BC as Hyperledger Fabric
+    participant IS as IoT Gateway Service
+    participant BE as Express Backend Core
+    participant BC as Blockchain Service
+    participant HLF as Hyperledger Fabric
 
-    Note over IoT, BE: Normal Telemetry Interval (HTTPS / MQTT)
-    IoT->>BE: POST /api/telemetry (Encrypted JSON payload)
-    BE->>FE: WebSocket Emit: "telemetry:update" (Real-time map redraw)
+    Note over IoT, IS: Telemetry Loop (Every 5s)
+    IoT->>IS: POST /api/iot/telemetry (Encrypted JSON Payload)
+    IS->>BE: Forward Telemetry (Normal parameters)
     
-    Note over IoT, BE: Tamper / Temperature Breach Event (High Priority)
-    IoT->>BE: POST /api/telemetry/breach (Tamper Flag = True)
-    BE->>FE: WebSocket Emit: "alarm:trigger" (Active Alert Box)
-    BE->>BC: Invoke Transaction (Log incident to HLF Ledger)
-    BC-->>BE: Transaction Receipt (Block Committed)
+    Note over IoT, IS: Environmental/Security Breach (Immediate)
+    IoT->>IS: POST /api/iot/telemetry (Tamper = True)
+    IS->>BE: Dispatch Incident Alert
+    BE->>BC: Invoke Audit Log Transaction
+    BC->>HLF: Commit Incident (Block Confirmed)
 ```
-
-### Protocol Rationale
-*   **HTTPS POST (REST)**: Used for initial key handshakes, authentication, and standard configuration settings.
-*   **WebSockets (WSS)**: Enables real-time full-duplex pipelines from backend to the dashboard. The frontend does not poll, saving computing resources.
-*   **gRPC**: The backend uses gRPC to interface with Hyperledger Fabric nodes. This optimizes performance and guarantees type safety through Protocol Buffers.
 
 ---
 
 ## 11. Authentication Flow
 The system utilizes a secure JWT-based stateless architecture coupled with physical security models at the edge.
-
-```
-       [User Login] ────> [Backend validates credentials] ────> [Generates JWT Token]
-                                                                        │
-        [Bearer authorization header sent in future calls] <────────────┘
-```
 
 *   **Token Refresh Cycle**: Short-lived access tokens (15 minutes) coupled with secure, HttpOnly refresh tokens stored in cookies. This prevents Cross-Site Scripting (XSS) from compromising the persistent session.
 *   **Hardware Authentication**: The ESP32 is registered on the backend with a unique device identifier and hardware-bound private key. During startup, it registers to retrieve a transient session JWT which is attached to all subsequent telemetry HTTP requests.
@@ -298,32 +275,102 @@ To prevent unauthorized state changes in the transplantation workflow, user acco
 ---
 
 ## 14. Data Flow
+The system manages high-priority transactions through detailed sequential pipelines:
 
-```
-                      [ Harvesting Complete ]
-                                 │
-                                 ▼
-                     [ Run Matching Algorithm ]
-                                 │
-                                 ▼
-              [ Dispatch & Link ESP32 to Session ]
-                                 │
-                                 ▼
-         [ Active Transport (Live Telemetry & Alert Checks) ]
-                                 │
-                                 ▼
-                       [ Destination Hospital ]
-                                 │
-                                 ▼
-                       [ Recipient Delivery ]
+### 1. User Login Sequence
+```mermaid
+sequenceDiagram
+    actor User as Dashboard User
+    participant FE as React Frontend
+    participant AG as API Gateway
+    participant HS as Hospital Service (User Db)
+
+    User->>FE: Input Credentials (Email/Password)
+    FE->>AG: POST /auth/login
+    AG->>HS: Validate Credentials (bcrypt compare)
+    HS-->>AG: User Account Info & Permissions
+    AG->>AG: Generate JWT Access & Refresh Tokens
+    AG-->>FE: Return JWT in HTTP Header & secure Cookie
+    FE-->>User: Grant Dashboard Access
 ```
 
-### Detailed Execution Sequence
-1.  **Harvest Step**: A surgeon logs organ harvest completion. The backend saves details in MongoDB and generates a secure ledger ID.
-2.  **Matching Engine**: The backend runs the priority algorithm. The output candidate list is locked onto the blockchain channel ledger.
-3.  **Transit Initialization**: The transport box RFID card is associated with the transit ID. The ledger marks the transition as "Dispatched".
-4.  **Transit Phase**: Telemetry is streamed to the backend. The backend validates temperature thresholds. If a threshold is violated, notifications are routed to the frontend map, and the breach is recorded on the ledger.
-5.  **Receiving Phase**: The receiving surgeon taps their RFID card, unlocking the box. The final transit digest is uploaded, checked for compliance, and marked "Delivered".
+### 2. Organ Allocation Sequence
+```mermaid
+sequenceDiagram
+    actor Doc as Donor Surgeon
+    participant FE as Hospital Interface
+    participant AG as API Gateway
+    participant OS as Organ Service
+    participant MS as Matching Engine Service
+    participant BS as Blockchain Service
+    participant HLF as Hyperledger Fabric
+
+    Doc->>FE: Declare Organ Viable (Submit details)
+    FE->>AG: POST /organ/register
+    AG->>OS: Save Organ Profile (MongoDB)
+    OS->>MS: Trigger Matching Engine
+    MS->>MS: Calculate Priority Scores (Match logic)
+    MS-->>AG: Candidate Match Queue (Ranked list)
+    AG->>BS: Invoke Record Match Transaction
+    BS->>HLF: Commit Allocation Match List
+    HLF-->>FE: Match List Committed (Transaction Confirmed)
+```
+
+### 3. Organ Transport & IoT Tracking Sequence
+```mermaid
+sequenceDiagram
+    actor Carrier as Courier Crew
+    participant Box as ESP32 Box
+    participant IS as IoT Gateway Service
+    participant BE as Express Backend Core
+    participant FE as React Live Dashboard
+
+    Carrier->>Box: Present RFID Badge to Lock Box
+    Box->>IS: POST /api/iot/auth-lock (Badge UID)
+    IS-->>Box: Auth Approved (Lock Actuator Engaged)
+    Note over Box, FE: Transit Phase Initiated
+    loop Every 5 Seconds
+        Box->>IS: POST /api/iot/telemetry (Temp, GPS, Tamper)
+        IS->>BE: Store raw telemetry logs (MongoDB)
+        BE->>FE: WebSocket Emit (Redraw Map & Charts)
+    end
+```
+
+### 4. Blockchain Verification Sequence
+```mermaid
+sequenceDiagram
+    actor Audit as Compliance Inspector
+    participant FE as Audit Dashboard
+    participant AG as API Gateway
+    participant BS as Blockchain Service
+    participant HLF as Hyperledger Fabric
+
+    Audit->>FE: Input Organ ID to Verify
+    FE->>AG: GET /audit/verify/:organId
+    AG->>BS: Query Ledger Key History
+    BS->>HLF: GetHistoryForKey(organId)
+    HLF-->>BS: Returns array of Blocks & Hashes
+    BS-->>FE: Cryptographic History List
+    FE-->>Audit: Display Verify Success (Tampers detected if any)
+```
+
+### 5. Hospital Approval Sequence
+```mermaid
+sequenceDiagram
+    actor RecipDoc as Recipient Surgeon
+    participant FE as Hospital Interface
+    participant AG as API Gateway
+    participant OS as Organ Service
+    participant BS as Blockchain Service
+    participant HLF as Hyperledger Fabric
+
+    RecipDoc->>FE: Accept Allocated Organ
+    FE->>AG: POST /organ/accept
+    AG->>OS: Update State to 'Matched-Approved'
+    AG->>BS: Invoke State Update Transaction
+    BS->>HLF: Commit Hospital Acceptance Block
+    HLF-->>FE: Action Committed & Logged
+```
 
 ---
 
@@ -339,27 +386,6 @@ The platform is designed around strict security guidelines for both software and
 ## 16. Deployment Architecture
 The platform is containerized to ensure consistent operation across local, testing, and production servers.
 
-```
-                           [ HTTPS / WSS Traffic ]
-                                      │
-                                      ▼
-                        [ Nginx Reverse Proxy / SSL ]
-                                      │
-              ┌───────────────────────┴───────────────────────┐
-              │                                               │
-      ┌───────▼───────┐                               ┌───────▼───────┐
-      │   React App   │                               │  Express App  │
-      │  (Container)  │                               │  (Container)  │
-      └───────────────┘                               └───────┬───────┘
-                                                              │
-                                      ┌───────────────────────┴───────────────────────┐
-                                      │                                               │
-                              ┌───────▼───────┐                               ┌───────▼───────┐
-                              │  MongoDB Res  │                               │  Fabric Peer  │
-                              │  (Container)  │                               │  (Container)  │
-                              └───────────────┘                               └───────────────┘
-```
-
 ### Infrastructure Components
 *   **Nginx**: Acts as the reverse proxy, load balancer, and SSL termination node.
 *   **PM2 Orchestrator**: Manages Node.js app processes to automatically restart on unhandled failures.
@@ -369,17 +395,6 @@ The platform is containerized to ensure consistent operation across local, testi
 
 ## 17. Docker Architecture
 The development and production configurations are managed via **Docker Compose**, separating components into distinct virtual networks:
-
-```
-[ frontend-net ] ────> React Container
-                          │
-                          ▼
-[ backend-net ]  ────> Express Service Container
-                          │
-            ┌─────────────┴─────────────┐
-            ▼                           ▼
-       MongoDB Container        Fabric Network Container
-```
 
 *   **Network Segmentation**: The frontend container cannot directly access MongoDB or Fabric. This prevents potential database attacks from compromised clients.
 *   **Volume Mounts**: Fabric CA and peer state storage folders map to secure host volumes to prevent data loss when container instances restart.
@@ -393,20 +408,82 @@ The development and production configurations are managed via **Docker Compose**
 
 ---
 
-## 19. Future Enhancements
-*   **Offline Cryptographic Logs**: Implementing BLE (Bluetooth Low Energy) protocols to allow transport crews to check box metrics even in remote areas without cellular coverage.
-*   **Zero-Knowledge Matching Proofs**: Using Zero-Knowledge proofs to verify recipient queue selection logic on the blockchain without sharing sensitive personal health information.
-*   **Advanced IoT Diagnostics**: Integrating battery life analysis algorithms on the ESP32 to predict energy usage patterns during complex, multi-modal transport paths.
+## 19. State Machine Diagrams
+
+### 1. Organ State Machine
+```mermaid
+stateDiagram-v2
+    [*] --> Harvested : Donor Harvester Surgeon Logs Viability
+    Harvested --> Verified : SOTTO/ROTTO Confirm Specifications
+    Verified --> Matched : Allocation Algorithm Selection Completed
+    Matched --> Allocated : Recipient Surgical Team Accepts Offer
+    Allocated --> Packed : Placed into ESP32 Transport Box
+    Packed --> Dispatched : RFID Locked & Vehicle Dispatched
+    Dispatched --> In_Transit : In Transit Telemetry Streams Active
+    In_Transit --> Delivered : RFID Authenticated Unlock at Destination
+    Delivered --> Transplanted : Surgery Complete (Medical Records Updated)
+    Transplanted --> [*]
+    
+    In_Transit --> Compromised : Temperature breach / Physical tampering
+    Compromised --> Rejected : Medical Evaluation Declares Organ Dead
+    Rejected --> [*]
+```
+
+### 2. Transport Box Lifecycle
+```mermaid
+stateDiagram-v2
+    [*] --> Idle : Registered, on standby charger
+    Idle --> Activated : Mission initialized & mapped to Organ ID
+    Activated --> Locked : Organ loaded, RFID Lock engaged
+    Locked --> Monitoring : Sensor loop active, telemetry streaming
+    
+    Monitoring --> Alert : Temp breach, Tamper triggered, Low battery
+    Alert --> Monitoring : Alert acknowledged / parameters restore
+    
+    Monitoring --> Delivered : Destination RFID badge unlock scan
+    Alert --> Delivered : Emergency code unlock scan
+    Delivered --> Reset : Box cleaned, sensors recalibrated, battery charged
+    Reset --> Idle
+```
 
 ---
 
-## 20. Architecture Decisions and Design Rationale
+## 20. Institutional & Regulatory Workflows (THOTA compliance)
+
+To fulfill Indian transplantation regulations (THOTA Guidelines), the matching, registration, and transport approvals must escalate through specific administrative hierarchies:
+
+```mermaid
+graph TD
+    Hospital[Harvesting Hospital] -->|Register Donor Details| SOTTO[SOTTO: State-Level Registry]
+    SOTTO -->|Cross-State Match Pool Escalation| ROTTO[ROTTO: Regional-Level Registry]
+    ROTTO -->|National List Matching Approval| NOTTO[NOTTO: National-Level Registry]
+    
+    NOTTO -->|Ledger Consent & Matching Verified| BC[Hyperledger Fabric Peer Consensus]
+    BC -->|Approved Transaction Hash| Hospital
+```
+
+### Hospital Care Case Workflow
+```mermaid
+graph LR
+    DonorReg[Donor Registered] --> DocVerify[Doctor Declares Death]
+    DocVerify --> CommApprove[Committee Review & Approval]
+    CommApprove --> MatchEngine[Match Engine Allocation Run]
+    MatchEngine --> NottoSign[NOTTO Sign-off]
+    NottoSign --> Dispatch[Organ Dispatch & IoT Lock]
+    Dispatch --> RecvHosp[Destination Hospital Lock Open]
+    RecvHosp --> Transplant[Transplant Surgery]
+    Transplant --> CloseCase[Case Closed & Ledger Locked]
+```
+
+---
+
+## 21. Architecture Decisions and Design Rationale
 
 ### 1. Choice of Hyperledger Fabric over Ethereum/Polygon
 *   **Rationale**: Public networks introduce variable transaction fee costs (gas) and lack true data privacy. Hyperledger Fabric provides a permissioned environment with zero gas fees, private data collections, and high throughput.
 
-### 2. Hybrid Database Strategy (MongoDB + Fabric)
-*   **Rationale**: Fabric is not designed for high-frequency telemetry storage. Using MongoDB as a storage engine for coordinate data streams while referencing hashes on the blockchain ledger ensures optimal performance and lower storage overhead.
+### 2. Domain-Driven Modular Platform over Monolithic Express Backend
+*   **Rationale**: Splitting the business actions into dedicated service engines ensures that performance issues inside matching algorithm loops do not disrupt real-time websocket connections tracking transport runs.
 
-### 3. ESP32 Edge Computations
-*   **Rationale**: The ESP32 manages lock control, battery monitoring, and sensor processing locally. This ensures that safety operations (like the audio alarms) execute immediately even during wireless network drops.
+### 3. Dedicated IoT Gateway Service
+*   **Rationale**: Provides a separate processing endpoint that handles sensor scaling and parses payloads. This shields the main Express API service from high-volume telemetry traffic from the ESP32.
