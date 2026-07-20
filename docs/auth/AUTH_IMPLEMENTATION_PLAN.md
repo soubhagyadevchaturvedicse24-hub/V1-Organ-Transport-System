@@ -1,81 +1,139 @@
 # Sprint 2: Authentication Implementation Plan
 
+This document serves as the exact blueprint for Sprint 2. The sole focus of this sprint is establishing secure authentication and role-based access control (RBAC). No other domain modules (Hospitals, Organs, etc.) will be developed during this phase.
+
 ## 1. Folder Structure
 
-The Authentication module will be isolated in the backend using the following domain-driven structure:
+The authentication module will be strictly isolated within the backend using a domain-driven structure:
 
 ```text
 backend/src/
 ├── auth/
-│   ├── auth.controller.js
-│   ├── auth.service.js
-│   ├── auth.route.js
-│   ├── auth.validation.js
-│   └── tokens.util.js
+│   ├── controllers/      # Route handlers (req, res)
+│   ├── services/         # Core business logic (login, token generation)
+│   ├── routes/           # Express router definitions
+│   ├── middleware/       # Auth-specific middlewares (if any)
+│   ├── validators/       # Input validation (Joi/Zod)
+│   ├── dto/              # Data Transfer Objects
+│   ├── utils/            # Token generation, hashing utilities
+│   └── tests/            # Unit and integration tests
 ├── middleware/
-│   ├── requireAuth.js
-│   ├── requireRole.js
-│   └── errorHandler.js
+│   ├── requireAuth.js    # Global JWT verifier
+│   ├── requirePermission.js # Global Permission enforcer
+│   └── errorHandler.js   # Global error formatting
 ```
 
-## 2. JWT Flow & Refresh Token Strategy
+## 2. Authentication Flow
 
-- **Access Token:** Short-lived JWT (e.g., 15 minutes) sent in the `Authorization: Bearer <token>` header.
-- **Refresh Token:** Long-lived JWT (e.g., 7 days) stored securely in an `HttpOnly`, `Secure`, `SameSite=Strict` cookie to prevent XSS attacks.
-- **Flow:**
-  1. Client sends credentials to `/auth/login`.
-  2. Server responds with Access Token in JSON payload and Refresh Token in cookie.
-  3. When Access Token expires, client calls `/auth/refresh`.
-  4. Server verifies Refresh Token cookie and issues a new Access Token.
-  5. On `/auth/logout`, server clears the cookie and blacklists the token (if implementing stateful revocation).
+The standard login and token generation sequence for **Human Users**:
 
-## 3. Password Hashing
+1. **Login Request:** Client submits `email` and `password`.
+2. **Validate Input:** `validators` ensure data integrity and format.
+3. **Find User:** `services` query MongoDB for the user record.
+4. **Account Status Check:** Ensure user status is `ACTIVE`.
+5. **Verify Password:** Compare hash using adaptive password hashing (e.g., bcrypt).
+6. **Audit Log:** Log `LOGIN_SUCCESS` (or `LOGIN_FAILED`).
+7. **Generate Access Token:** Create short-lived JWT payload.
+8. **Generate Refresh Token:** Create long-lived opaque token (or JWT).
+9. **Store Refresh Token:** Save `hash(refreshToken)` to DB (for revocation) and set `HttpOnly` cookie.
+10. **Return Response:** Send standardized JSON payload.
 
-- **Algorithm:** `bcryptjs`
-- **Work Factor:** 10 (or 12 depending on performance targets)
-- Hashing will occur automatically within the User Mongoose schema `pre('save')` hook.
+## 3. Authorization Flow
 
-## 4. RBAC (Role-Based Access Control) Middleware
+The middleware pipeline for protected routes:
 
-- We will define roles (e.g., `ADMIN`, `HOSPITAL`, `TRANSPORT`, `AUDITOR`).
-- `requireRole(['ADMIN', 'HOSPITAL'])` will be a factory middleware returning an express handler.
-- It will depend on the `requireAuth` middleware to first verify the JWT and attach `req.user`.
+1. **Request:** Client makes request with `Authorization: Bearer <token>`.
+2. **JWT Verification:** `requireAuth` verifies token signature and expiration.
+3. **User Lookup:** Extract user ID and role from payload.
+4. **Permission Validation:** `requirePermission('resource:action')` maps user's Role to Permissions and verifies.
+5. **Controller:** Execute business logic.
 
-## 5. Middleware Order
+## 4. RBAC & Permissions Matrix
 
-Standardized middleware pipeline for protected routes:
-1. General Express parsers (JSON, urlencoded).
-2. Rate Limiting (`express-rate-limit` for `/auth` endpoints).
-3. `requireAuth` (Verifies JWT and populates `req.user`).
-4. `requireRole` (Verifies `req.user.role`).
-5. Route Handler (Controller).
-6. Global `errorHandler` (Catches all next(err) calls).
+We use domain-specific roles mapped to granular permissions.
 
-## 6. Error Responses
+### Roles
+- Platform Administrator
+- NOTTO Officer
+- ROTTO / SOTTO Officer
+- Hospital Coordinator
+- Transplant Surgeon
+- Courier / Transport Coordinator
+- Auditor
 
-Standardized JSON error structures:
+*(Note: Virtual Device will have a separate Device Authentication flow in a future sprint).*
+
+### Example Permissions
+- `auth:login`
+- `auth:refresh`
+- `hospital:create`
+- `hospital:view`
+- `donor:create`
+- `audit:view`
+
+## 5. Token Strategy
+
+- **Access Token:** JWT, valid for **15 minutes**. Sent via `Authorization` header.
+- **Refresh Token:** JWT or Opaque Token, valid for **7 days**. Sent via `HttpOnly`, `Secure`, `SameSite=Strict` cookie.
+- **Storage:** Stored as `hash(refreshToken)` in the database to prevent abuse if leaked.
+- **Rotation Policy:** Refresh token rotation enabled.
+- **Revocation Policy:** Logout or compromised accounts will flag the token family as revoked.
+
+## 6. Password & Account Policy
+
+- **Minimum Length:** 12 characters.
+- **Complexity:** Uppercase, lowercase, number, special character.
+- **Hashing Algorithm:** Industry-standard adaptive password hashing (Current implementation: `bcrypt` factor 12).
+- **Lockout Policy:** 5 failed login attempts lock the account for 15 minutes. Log `ACCOUNT_LOCKED`.
+- **Account Statuses:** `ACTIVE`, `PENDING_APPROVAL`, `SUSPENDED`, `LOCKED`, `DISABLED`.
+
+## 7. Standardized API Envelope
+
+Every API response follows this envelope:
+
 ```json
 {
-  "status": "error",
-  "code": "UNAUTHORIZED",
-  "message": "Invalid or expired token",
-  "details": []
+  "success": true,
+  "message": "Login successful",
+  "data": { ... }
 }
 ```
-HTTP Status Codes:
-- `400` Bad Request (Validation failure)
-- `401` Unauthorized (Missing or invalid JWT)
-- `403` Forbidden (Valid JWT, insufficient role)
 
-## 7. Test Cases (Bruno)
+## 8. Error Catalogue
 
-We will expand the Bruno collection:
-```text
-Bruno/
-└── Authentication/
-    ├── Register Admin (POST /auth/register)
-    ├── Login (POST /auth/login)
-    ├── Refresh Token (POST /auth/refresh)
-    ├── Get Current User (GET /auth/me)
-    └── Logout (POST /auth/logout)
-```
+Standardized authentication errors:
+
+- **`AUTH_001`**: Invalid credentials (`401 Unauthorized`)
+- **`AUTH_002`**: Token expired (`401 Unauthorized`)
+- **`AUTH_003`**: Access denied / Insufficient permissions (`403 Forbidden`)
+- **`AUTH_004`**: Account locked due to multiple failed attempts (`423 Locked`)
+- **`AUTH_005`**: Invalid token signature (`401 Unauthorized`)
+- **`AUTH_006`**: Missing authorization header (`401 Unauthorized`)
+- **`AUTH_007`**: Password does not meet complexity requirements (`400 Bad Request`)
+- **`AUTH_008`**: Account not active (`403 Forbidden`)
+
+## 9. Testing Plan
+
+Tests will be defined and executed via Bruno and automated frameworks:
+
+- Login success
+- Login failure (wrong password / account locked)
+- `GET /api/v1/auth/me` verifies session
+- Refresh token success / rotation / revocation
+- Logout success
+- RBAC permission denied
+
+## 10. Definition of Done (Sprint 2)
+
+- `[ ]` Database Connection (MongoDB Setup)
+- `[ ]` `POST /auth/login` implemented
+- `[ ]` `POST /auth/logout` implemented
+- `[ ]` `POST /auth/refresh` implemented
+- `[ ]` `GET /auth/me` implemented
+- `[ ]` `requireAuth` JWT Middleware implemented
+- `[ ]` `requirePermission` Middleware implemented
+- `[ ]` Password Hashing & Refresh Token Hashing
+- `[ ]` Account Lockout & User Status Validation
+- `[ ]` Audit Logging for auth events
+- `[ ]` Authentication Tests pass (Bruno + Unit)
+- `[ ]` Documentation & README updated

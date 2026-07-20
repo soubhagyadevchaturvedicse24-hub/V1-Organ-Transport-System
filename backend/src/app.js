@@ -3,12 +3,17 @@ import cors from 'cors';
 import helmet from 'helmet';
 import healthRoute from './health/health.route.js';
 
+import authRoute from './auth/routes/auth.route.js';
+import cookieParser from 'cookie-parser';
+import { errorHandler } from './middleware/errorHandler.js';
+
 const app = express();
 
 // Middleware
 app.use(helmet());
 app.use(cors());
 app.use(express.json());
+app.use(cookieParser());
 
 // Routes
 app.get('/', (req, res) => {
@@ -18,6 +23,9 @@ app.get('/', (req, res) => {
   });
 });
 
+app.use('/api/v1/auth', authRoute);
 app.use('/api/v1', healthRoute);
+
+app.use(errorHandler);
 
 export default app;
