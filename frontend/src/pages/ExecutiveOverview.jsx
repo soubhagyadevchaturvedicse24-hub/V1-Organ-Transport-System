@@ -1,148 +1,209 @@
-import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Building2, UserCircle2, Heart, Plane, Link2, Activity, Clock } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Building2, UserCircle2, Heart, Plane, Link2,
+  Activity, Clock, TrendingUp, AlertTriangle, CheckCircle2, Info
+} from 'lucide-react';
 import { getDashboardKPIs } from '../services/api';
 import styles from './ExecutiveOverview.module.css';
 
+/* ── Animated counter ── */
+const AnimatedNumber = ({ value }) => {
+  const [display, setDisplay] = useState(0);
+  useEffect(() => {
+    let start = 0;
+    const end = Number(value);
+    if (end === 0) return;
+    const step = Math.ceil(end / 30);
+    const timer = setInterval(() => {
+      start = Math.min(start + step, end);
+      setDisplay(start);
+      if (start >= end) clearInterval(timer);
+    }, 30);
+    return () => clearInterval(timer);
+  }, [value]);
+  return <span>{display.toLocaleString()}</span>;
+};
+
+/* ── KPI card ── */
+const KpiCard = ({ card, idx }) => {
+  const Icon = card.icon;
+  return (
+    <motion.div
+      className={styles.kpiCard}
+      style={{ '--accent': card.color }}
+      initial={{ opacity: 0, y: 24 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: idx * 0.09, type: 'spring', stiffness: 200 }}
+    >
+      <div className={styles.kpiGlow} />
+      <div className={styles.kpiTop}>
+        <div className={styles.kpiIcon}><Icon size={20} /></div>
+        {card.trend && (
+          <span className={styles.kpiTrend}>
+            <TrendingUp size={12} /> {card.trend}
+          </span>
+        )}
+      </div>
+      <h3 className={styles.kpiValue}>
+        <AnimatedNumber value={card.value} />
+      </h3>
+      <span className={styles.kpiTitle}>{card.title}</span>
+    </motion.div>
+  );
+};
+
+/* ── Alert severity map ── */
+const severityConfig = {
+  critical: { cls: styles.alertCritical, Icon: AlertTriangle, color: 'var(--status-critical)' },
+  warning:  { cls: styles.alertWarning,  Icon: AlertTriangle,  color: 'var(--status-warning)'  },
+  success:  { cls: styles.alertSuccess,  Icon: CheckCircle2,  color: 'var(--status-online)'   },
+  info:     { cls: styles.alertInfo,     Icon: Info,           color: 'var(--status-idle)'     },
+};
+
 const ExecutiveOverview = () => {
-  const [kpis, setKpis] = useState({
-    hospitalsCount: 0,
-    donorsCount: 0,
-    organsCount: 0,
-    missionsCount: 0,
-    blocksCount: 0
-  });
+  const [kpis, setKpis]     = useState({ hospitalsCount:0, donorsCount:0, organsCount:0, missionsCount:0, blocksCount:0 });
   const [loading, setLoading] = useState(true);
+  const [alerts, setAlerts]  = useState([
+    { id:1, type:'TELEMETRY_ALERT',       message:'Temperature spike: 9.2°C on BOX-2026-001',      time:'just now',     severity:'critical' },
+    { id:2, type:'MATCH_ACCEPTED',        message:'Kidney allocation MAT-001 approved by NOTTO',   time:'4 mins ago',   severity:'success'  },
+    { id:3, type:'HEALTH_STATUS_CHANGED', message:'Mission TRN-2026-001 health changed to WARNING', time:'18 mins ago',  severity:'warning'  },
+    { id:4, type:'ORGAN_REGISTERED',      message:'KIDNEY ORG-KID-001 registered at AIIMS',        time:'32 mins ago',  severity:'info'     },
+  ]);
+
+  const timeline = [
+    { title:'Transport Dispatched', desc:'TRN-2026-001 departed AIIMS New Delhi', time:'01:07 AM', color:'var(--brand-green)' },
+    { title:'Match Accepted',       desc:'Dr. Admin approved allocation for REC-2026-001', time:'12:52 AM', color:'var(--brand-blue)'  },
+    { title:'Organ Assessed',       desc:'KIDNEY ORG-KID-001 cleared medically viable',  time:'12:30 AM', color:'var(--brand-purple)'},
+    { title:'Donor Registered',     desc:'DON-2026-001 consent verified at AIIMS',        time:'12:05 AM', color:'var(--brand-amber)' },
+  ];
 
   useEffect(() => {
-    // Note: Backend might need to be running with seed data for this to populate
-    // Since we don't have auth setup in frontend, we might get 401s if API requires it. 
-    // For demo purposes, we can assume public or mock if 401. 
-    // To ensure "mock-free", we'll attempt real fetch, and if fail, display 0.
     getDashboardKPIs()
-      .then(data => setKpis(data))
+      .then(d => setKpis(d))
       .finally(() => setLoading(false));
   }, []);
 
   const statCards = [
-    { title: 'Hospitals', value: kpis.hospitalsCount, icon: Building2, color: 'var(--accent-secondary)' },
-    { title: 'Active Donors', value: kpis.donorsCount, icon: UserCircle2, color: 'var(--status-warning)' },
-    { title: 'Available Organs', value: kpis.organsCount, icon: Heart, color: 'var(--accent-primary)' },
-    { title: 'Active Missions', value: kpis.missionsCount, icon: Plane, color: 'var(--accent-secondary)' },
-    { title: 'Blockchain Blocks', value: kpis.blocksCount, icon: Link2, color: 'var(--status-normal)' },
-  ];
-
-  // Placeholder for real-time events until we connect WebSocket or poll
-  const recentAlerts = [
-    { id: 1, type: 'TELEMETRY_ALERT', message: 'Temperature high: 10°C on BOX-101', time: '2 mins ago', severity: 'critical' },
-    { id: 2, type: 'MATCH_ACCEPTED', message: 'Kidney Match MAT-1 Accepted by AIIMS', time: '15 mins ago', severity: 'success' },
-    { id: 3, type: 'HEALTH_STATUS_CHANGED', message: 'Mission TRN-2026-001 is now WARNING', time: '1 hr ago', severity: 'warning' },
+    { title:'Hospitals',         value: kpis.hospitalsCount, icon: Building2,    color:'#60a5fa', trend:'+1 this month' },
+    { title:'Active Donors',     value: kpis.donorsCount,    icon: UserCircle2,   color:'#fbbf24', trend:null            },
+    { title:'Available Organs',  value: kpis.organsCount,    icon: Heart,         color:'#22d3a0', trend:'Live'          },
+    { title:'Active Missions',   value: kpis.missionsCount,  icon: Plane,         color:'#60a5fa', trend:'In transit'    },
+    { title:'Ledger Blocks',     value: kpis.blocksCount,    icon: Link2,         color:'#a78bfa', trend:'Immutable'     },
   ];
 
   return (
     <div className="page-container">
-      <div className={styles.header}>
-        <h1 className="gradient-text">Command Center</h1>
-        <p className={styles.subtitle}>System overview and live telemetry</p>
-      </div>
+      {/* Header */}
+      <motion.div className={styles.header} initial={{ opacity:0, y:-12 }} animate={{ opacity:1, y:0 }}>
+        <div>
+          <h1 className={`gradient-text ${styles.title}`}>Command Center</h1>
+          <p className={styles.subtitle}>Real-time platform telemetry and operational overview</p>
+        </div>
+        <div className={styles.liveIndicator}>
+          <span className="live-dot" />
+          <span>Live Feed</span>
+        </div>
+      </motion.div>
 
       {loading ? (
-        <div className={styles.loader}>Loading real-time metrics...</div>
+        <div className={styles.loadingGrid}>
+          {Array(5).fill(0).map((_,i) => <div key={i} className={styles.skeleton} />)}
+        </div>
       ) : (
-        <div className={styles.content}>
+        <>
           {/* KPI Row */}
           <div className={styles.kpiGrid}>
-            {statCards.map((card, idx) => {
-              const Icon = card.icon;
-              return (
-                <motion.div 
-                  key={card.title} 
-                  className={`${styles.kpiCard} glass-panel`}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: idx * 0.1 }}
-                >
-                  <div className={styles.kpiIconWrapper} style={{ backgroundColor: `${card.color}22`, color: card.color }}>
-                    <Icon size={24} />
-                  </div>
-                  <div className={styles.kpiInfo}>
-                    <h3 className={styles.kpiValue}>{card.value}</h3>
-                    <span className={styles.kpiTitle}>{card.title}</span>
-                  </div>
-                </motion.div>
-              );
-            })}
+            {statCards.map((c, i) => <KpiCard key={c.title} card={c} idx={i} />)}
           </div>
 
-          <div className={styles.panelsGrid}>
+          {/* Lower panels */}
+          <div className={styles.panels}>
             {/* Live Alerts */}
-            <motion.div 
-              className={`${styles.panel} glass-panel`}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.5 }}
+            <motion.section
+              className={`glass-panel ${styles.panel}`}
+              initial={{ opacity:0, x:-20 }} animate={{ opacity:1, x:0 }} transition={{ delay:0.4 }}
             >
-              <div className={styles.panelHeader}>
-                <Activity size={20} className={styles.panelIcon} />
-                <h2>Live Alerts</h2>
+              <div className={styles.panelHead}>
+                <Activity size={18} style={{ color:'var(--brand-green)' }} />
+                <h2 className={styles.panelTitle}>Live Alerts</h2>
+                <span className={`badge badge-online ${styles.ml}`}>Live</span>
               </div>
-              <div className={styles.alertList}>
-                {recentAlerts.map(alert => (
-                  <div key={alert.id} className={`${styles.alertItem} ${styles[alert.severity]}`}>
-                    <div className={styles.alertDot} />
-                    <div className={styles.alertContent}>
-                      <span className={styles.alertType}>{alert.type}</span>
-                      <p className={styles.alertMessage}>{alert.message}</p>
-                      <span className={styles.alertTime}>{alert.time}</span>
+              <div className={`${styles.alertList} panel-scroll`}>
+                <AnimatePresence>
+                  {alerts.map(a => {
+                    const cfg = severityConfig[a.severity];
+                    const SIcon = cfg.Icon;
+                    return (
+                      <motion.div
+                        key={a.id}
+                        layout
+                        initial={{ opacity:0, height:0 }}
+                        animate={{ opacity:1, height:'auto' }}
+                        exit={{ opacity:0, height:0 }}
+                        className={`${styles.alertItem} ${cfg.cls}`}
+                      >
+                        <SIcon size={14} style={{ color:cfg.color, flexShrink:0, marginTop:2 }} />
+                        <div className={styles.alertBody}>
+                          <span className={styles.alertType}>{a.type}</span>
+                          <p className={styles.alertMsg}>{a.message}</p>
+                          <span className={styles.alertTime}>{a.time}</span>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </AnimatePresence>
+              </div>
+            </motion.section>
+
+            {/* Timeline */}
+            <motion.section
+              className={`glass-panel ${styles.panel}`}
+              initial={{ opacity:0, x:20 }} animate={{ opacity:1, x:0 }} transition={{ delay:0.5 }}
+            >
+              <div className={styles.panelHead}>
+                <Clock size={18} style={{ color:'var(--brand-blue)' }} />
+                <h2 className={styles.panelTitle}>Activity Timeline</h2>
+              </div>
+              <div className={styles.timelineList}>
+                {timeline.map((t, i) => (
+                  <div key={i} className={styles.timelineItem}>
+                    {i < timeline.length-1 && <div className={styles.timelineConnector} />}
+                    <div className={styles.timelineDot} style={{ background: t.color, boxShadow:`0 0 8px ${t.color}` }} />
+                    <div className={styles.timelineContent}>
+                      <h4 className={styles.timelineTitle}>{t.title}</h4>
+                      <p className={styles.timelineDesc}>{t.desc}</p>
+                      <span className={styles.timelineTime}>{t.time}</span>
                     </div>
                   </div>
                 ))}
               </div>
-            </motion.div>
+            </motion.section>
 
-            {/* Activity Timeline */}
-            <motion.div 
-              className={`${styles.panel} glass-panel`}
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.6 }}
+            {/* System Health mini-panel */}
+            <motion.section
+              className={`glass-panel ${styles.panel} ${styles.panelSmall}`}
+              initial={{ opacity:0, y:20 }} animate={{ opacity:1, y:0 }} transition={{ delay:0.6 }}
             >
-              <div className={styles.panelHeader}>
-                <Clock size={20} className={styles.panelIcon} />
-                <h2>Activity Timeline</h2>
+              <div className={styles.panelHead}>
+                <h2 className={styles.panelTitle}>System Health</h2>
               </div>
-              <div className={styles.timeline}>
-                <div className={styles.timelineItem}>
-                  <div className={styles.timelineLine}></div>
-                  <div className={styles.timelineDot}></div>
-                  <div className={styles.timelineContent}>
-                    <h4>Transport Dispatched</h4>
-                    <p>TRN-2026-001 left AIIMS New Delhi</p>
-                    <span>10:45 AM</span>
-                  </div>
+              {[
+                { label:'API Server',      status:'ONLINE',  color:'var(--status-online)'   },
+                { label:'MongoDB',         status:'ONLINE',  color:'var(--status-online)'   },
+                { label:'Event Bus',       status:'ACTIVE',  color:'var(--status-online)'   },
+                { label:'IoT Simulator',   status:'RUNNING', color:'var(--brand-amber)'     },
+                { label:'Blockchain Ledger',status:'VALID',  color:'var(--brand-purple)'    },
+              ].map(item => (
+                <div key={item.label} className={styles.healthRow}>
+                  <span className={styles.healthLabel}>{item.label}</span>
+                  <span className={styles.healthDot} style={{ background: item.color, boxShadow:`0 0 6px ${item.color}` }} />
+                  <span className={styles.healthStatus} style={{ color: item.color }}>{item.status}</span>
                 </div>
-                <div className={styles.timelineItem}>
-                  <div className={styles.timelineLine}></div>
-                  <div className={styles.timelineDot}></div>
-                  <div className={styles.timelineContent}>
-                    <h4>Match Accepted</h4>
-                    <p>Dr. Admin approved Match MAT-1</p>
-                    <span>10:30 AM</span>
-                  </div>
-                </div>
-                <div className={styles.timelineItem}>
-                  <div className={styles.timelineLine}></div>
-                  <div className={styles.timelineDot}></div>
-                  <div className={styles.timelineContent}>
-                    <h4>Organ Registered</h4>
-                    <p>KIDNEY ORG-KID-001 marked AVAILABLE</p>
-                    <span>10:15 AM</span>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
+              ))}
+            </motion.section>
           </div>
-        </div>
+        </>
       )}
     </div>
   );

@@ -2,33 +2,35 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-4) var(--space-8);
-  margin: var(--space-4) var(--space-8);
-  border-radius: var(--radius-lg);
-  /* The rest is handled by global glass-panel */
-  z-index: 5;
+  padding: var(--sp-3) var(--sp-6);
+  margin: var(--sp-4) var(--sp-8);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow-sm);
+  z-index: 10;
+  flex-shrink: 0;
 }
 
-.searchContainer {
+/* ── Search ─────────────────────────── */
+.searchWrap {
   display: flex;
   align-items: center;
-  background-color: rgba(255, 255, 255, 0.05);
-  border-radius: var(--radius-full);
-  padding: var(--space-2) var(--space-4);
-  width: 300px;
+  gap: var(--sp-2);
+  background: rgba(255,255,255,0.04);
   border: 1px solid transparent;
-  transition: border-color var(--duration-fast) ease;
+  border-radius: var(--r-full);
+  padding: var(--sp-2) var(--sp-4);
+  width: 320px;
+  transition: border-color var(--t-fast);
 }
-
-.searchContainer:focus-within {
-  border-color: var(--accent-primary);
+.searchWrap:focus-within {
+  border-color: var(--brand-green);
+  background: rgba(34,211,160,0.04);
 }
-
-.searchIcon {
-  color: var(--text-tertiary);
-  margin-right: var(--space-2);
-}
-
+.searchIcon { color: var(--text-tertiary); flex-shrink: 0; }
 .searchInput {
   background: transparent;
   border: none;
@@ -37,66 +39,73 @@
   width: 100%;
   font-size: 0.875rem;
 }
+.searchInput::placeholder { color: var(--text-tertiary); }
 
-.searchInput::placeholder {
-  color: var(--text-tertiary);
-}
+/* ── Right actions ──────────────────── */
+.actions { display: flex; align-items: center; gap: var(--sp-4); }
 
-.actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-6);
-}
-
-.iconButton {
+.iconBtn {
   position: relative;
+  width: 36px; height: 36px;
+  border-radius: var(--r-md);
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--glass-border);
+  display: flex; align-items: center; justify-content: center;
   color: var(--text-secondary);
-  transition: color var(--duration-fast) ease;
+  transition: all var(--t-fast);
 }
-
-.iconButton:hover {
+.iconBtn:hover {
+  background: rgba(255,255,255,0.09);
   color: var(--text-primary);
+  border-color: rgba(255,255,255,0.12);
 }
-
 .badge {
   position: absolute;
-  top: -4px;
-  right: -4px;
-  background-color: var(--accent-danger);
+  top: -4px; right: -4px;
+  background: var(--brand-red);
   color: white;
-  font-size: 0.625rem;
-  font-weight: 700;
-  width: 16px;
-  height: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-full);
+  font-size: 0.6rem;
+  font-weight: 800;
+  width: 16px; height: 16px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  border: 2px solid var(--bg-secondary);
 }
 
+/* ── Time display ───────────────────── */
+.timeDisplay {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--text-tertiary);
+  padding: 0 var(--sp-3);
+  border-left: 1px solid var(--glass-border);
+}
+
+/* ── Profile ────────────────────────── */
+.divider {
+  width: 1px; height: 24px;
+  background: var(--glass-border);
+}
 .profile {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-lg);
   cursor: pointer;
+  transition: background var(--t-fast);
 }
-
+.profile:hover { background: rgba(255,255,255,0.04); }
 .avatar {
-  color: var(--accent-secondary);
-}
-
-.userInfo {
-  display: flex;
-  flex-direction: column;
-}
-
-.userName {
+  width: 34px; height: 34px;
+  border-radius: var(--r-md);
+  background: linear-gradient(135deg, var(--brand-green), var(--brand-blue));
+  display: flex; align-items: center; justify-content: center;
+  color: #050508;
+  font-weight: 800;
   font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--text-primary);
+  box-shadow: var(--glow-green);
 }
-
-.userRole {
-  font-size: 0.75rem;
-  color: var(--text-tertiary);
-}
+.userInfo { display: flex; flex-direction: column; }
+.userName { font-size: 0.8rem; font-weight: 600; color: var(--text-primary); }
+.userRole { font-size: 0.68rem; color: var(--text-tertiary); }

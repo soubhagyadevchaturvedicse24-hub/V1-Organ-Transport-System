@@ -4,6 +4,7 @@ import ExecutiveOverview from './pages/ExecutiveOverview';
 import MatchingQueue from './pages/MatchingQueue';
 import TransportMap from './pages/TransportMap';
 import BlockchainAudit from './pages/BlockchainAudit';
+import SimulatorPage from './pages/SimulatorPage';
 import './App.css';
 
 function App() {
@@ -12,10 +13,11 @@ function App() {
       <Routes>
         <Route path="/" element={<DashboardLayout />}>
           <Route index element={<Navigate to="/overview" replace />} />
-          <Route path="overview" element={<ExecutiveOverview />} />
-          <Route path="matching" element={<MatchingQueue />} />
-          <Route path="transport" element={<TransportMap />} />
-          <Route path="audit" element={<BlockchainAudit />} />
+          <Route path="overview"   element={<ExecutiveOverview />} />
+          <Route path="matching"   element={<MatchingQueue />}     />
+          <Route path="transport"  element={<TransportMap />}      />
+          <Route path="audit"      element={<BlockchainAudit />}   />
+          <Route path="simulator"  element={<SimulatorPage />}     />
         </Route>
       </Routes>
     </Router>

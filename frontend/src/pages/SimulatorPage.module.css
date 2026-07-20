@@ -1,0 +1,167 @@
+/* ── Header ─────────────────────────── */
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-1);
+}
+.title { font-size: 2rem; font-weight: 800; }
+.subtitle { color: var(--text-secondary); font-size: 0.9rem; }
+.connStatus { padding-top: var(--sp-1); }
+
+/* ── Layout ─────────────────────────── */
+.layout {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  gap: var(--sp-5);
+  flex: 1;
+  min-height: 0;
+}
+
+.leftCol {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+  overflow-y: auto;
+  padding-right: var(--sp-1);
+}
+.leftCol::-webkit-scrollbar { width: 3px; }
+.leftCol::-webkit-scrollbar-thumb { background: var(--bg-elevated); border-radius: 2px; }
+
+/* ── Cards ──────────────────────────── */
+.cardHead {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-4);
+  padding-bottom: var(--sp-3);
+  border-bottom: 1px solid var(--glass-border);
+}
+.cardHead h3 { font-size: 0.95rem; font-weight: 700; color: var(--text-primary); }
+.editBtn { margin-left: auto; font-size: 0.75rem; padding: var(--sp-1) var(--sp-3); }
+
+.controlCard, .gaugeCard, .configCard {
+  padding: var(--sp-5);
+}
+
+/* ── Controls ────────────────────────── */
+.btnRow { display: flex; gap: var(--sp-3); flex-wrap: wrap; }
+.statsRow {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--sp-3);
+  margin-top: var(--sp-4);
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--glass-border);
+}
+.stat { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.statVal { font-size: 1.125rem; font-weight: 800; font-family: var(--font-mono); color: var(--text-primary); }
+.statLbl { font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+
+/* ── Gauges ─────────────────────────── */
+.waiting { color: var(--text-muted); font-size: 0.85rem; text-align: center; padding: var(--sp-6) 0; }
+.gaugeList { display: flex; flex-direction: column; gap: var(--sp-4); }
+
+.gauge { display: flex; flex-direction: column; gap: var(--sp-2); }
+.gaugeHeader { display: flex; align-items: center; gap: var(--sp-2); }
+.gaugeLabel { font-size: 0.8rem; color: var(--text-secondary); flex: 1; }
+.gaugeValue { font-size: 0.9rem; font-weight: 700; font-family: var(--font-mono); }
+.gaugeTrack {
+  height: 6px;
+  background: rgba(255,255,255,0.06);
+  border-radius: var(--r-full);
+  overflow: hidden;
+}
+.gaugeFill {
+  height: 100%;
+  border-radius: var(--r-full);
+  transition: width 0.5s ease;
+}
+
+.locationRow {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  background: rgba(255,255,255,0.02);
+  border-radius: var(--r-md);
+  margin-top: var(--sp-1);
+}
+.locationLabel { font-size: 0.78rem; color: var(--text-secondary); flex: 1; }
+.locationVal   { font-size: 0.78rem; color: var(--brand-purple); }
+
+.alertBanner {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-md);
+  font-size: 0.8rem;
+  font-weight: 700;
+  background: rgba(248,113,113,0.12);
+  border: 1px solid rgba(248,113,113,0.3);
+  color: var(--status-critical);
+  animation: pulse-dot 1.5s ease infinite;
+}
+.alertTemp {
+  background: rgba(251,191,36,0.12);
+  border-color: rgba(251,191,36,0.3);
+  color: var(--status-warning);
+}
+
+/* ── Config ──────────────────────────── */
+.configForm, .configList { display: flex; flex-direction: column; gap: var(--sp-3); overflow: hidden; }
+.formRow { display: flex; flex-direction: column; gap: var(--sp-1); }
+.formLabel { font-size: 0.75rem; color: var(--text-tertiary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+.formInput { font-family: var(--font-mono); }
+
+.configRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--sp-2) 0;
+  border-bottom: 1px solid var(--glass-border);
+}
+.configRow:last-child { border-bottom: none; }
+.configKey { font-size: 0.82rem; color: var(--text-secondary); }
+.configVal { font-size: 0.82rem; color: var(--brand-blue); }
+
+/* ── Console ─────────────────────────── */
+.console {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.consoleHead {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-5);
+  background: rgba(0,0,0,0.3);
+  border-bottom: 1px solid var(--glass-border);
+  flex-shrink: 0;
+}
+.consoleDots { display: flex; gap: var(--sp-2); }
+.consoleDots span { width: 12px; height: 12px; border-radius: 50%; }
+.consoleName { font-size: 0.78rem; color: var(--text-tertiary); font-family: var(--font-mono); }
+
+.logBody {
+  flex: 1;
+  padding: var(--sp-4) var(--sp-5);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+  min-height: 0;
+}
+.logEmpty { color: var(--text-muted); font-family: var(--font-mono); font-size: 0.8rem; }
+.logLine  { display: flex; gap: var(--sp-4); font-family: var(--font-mono); font-size: 0.78rem; line-height: 1.6; }
+.logTs    { color: var(--text-muted); flex-shrink: 0; }
+.logMsg   { word-break: break-word; white-space: pre-wrap; }

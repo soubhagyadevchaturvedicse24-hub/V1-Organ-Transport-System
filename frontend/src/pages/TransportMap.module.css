@@ -1,200 +1,130 @@
-.pageContainer {
-  padding: var(--space-6) var(--space-8);
-  flex: 1;
+.page {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--sp-5);
+  padding: var(--sp-6) var(--sp-8);
+  flex: 1;
+  min-height: 0;
   height: 100%;
 }
 
-.header h1 {
-  font-size: 2rem;
-  font-weight: 700;
-  margin-bottom: var(--space-1);
-}
-
-.subtitle {
-  color: var(--text-secondary);
-  font-size: 1rem;
-}
-
-.loader, .emptyState {
-  color: var(--text-secondary);
-  font-size: 1.25rem;
-  text-align: center;
-  padding: var(--space-12);
-}
+.header { display: flex; align-items: flex-start; justify-content: space-between; }
+.title  { font-size: 2rem; font-weight: 800; }
+.subtitle { color: var(--text-secondary); font-size: 0.9rem; margin-top: var(--sp-1); }
+.headerRight { display: flex; align-items: center; gap: var(--sp-3); padding-top: var(--sp-1); }
+.lastUpdate { font-size: 0.72rem; color: var(--text-muted); font-family: var(--font-mono); display: flex; align-items: center; gap: var(--sp-1); }
 
 .layout {
-  display: flex;
-  gap: var(--space-6);
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: var(--sp-5);
   flex: 1;
   min-height: 0;
 }
 
-.mapWrapper {
-  flex: 1;
-  border-radius: var(--radius-xl);
+/* ── Map ────────────────────────────── */
+.mapWrap {
+  border-radius: var(--r-xl);
   overflow: hidden;
   border: 1px solid var(--glass-border);
   box-shadow: var(--shadow-lg);
-  position: relative;
-  z-index: 1;
+  min-height: 0;
 }
+.map { width: 100%; height: 100%; min-height: 400px; }
 
-.map {
-  width: 100%;
-  height: 100%;
-  background: var(--bg-primary);
-}
-
-/* Override Leaflet styles for dark mode */
-:global(.leaflet-container) {
-  background: var(--bg-primary) !important;
-  font-family: var(--font-family);
-}
-:global(.leaflet-popup-content-wrapper), :global(.leaflet-popup-tip) {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-  border: 1px solid var(--glass-border);
-}
-
+/* ── Side panel ──────────────────────── */
 .sidePanel {
-  width: 350px;
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
+  gap: var(--sp-4);
   overflow-y: auto;
 }
+.sidePanel::-webkit-scrollbar { width: 3px; }
+.sidePanel::-webkit-scrollbar-thumb { background: var(--bg-elevated); border-radius: 2px; }
 
-.healthCard {
-  padding: var(--space-6);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
+.card { padding: var(--sp-5); }
 
-.cardHeader {
+.cardHead {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-4);
+  padding-bottom: var(--sp-3);
+  border-bottom: 1px solid var(--glass-border);
 }
+.cardHead h3 { font-size: 0.95rem; font-weight: 700; }
 
-.cardHeader h3 {
-  font-size: 1.125rem;
-  font-weight: 600;
-}
-
-.icon {
-  color: var(--accent-primary);
-}
-
-.statusBadge {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-4);
-  border-radius: var(--radius-full);
-  font-weight: 700;
-  font-size: 0.875rem;
-  align-self: flex-start;
-}
-
-.statusBadge.normal { background-color: rgba(16, 185, 129, 0.1); color: var(--status-normal); border: 1px solid var(--status-normal); }
-.statusBadge.warning { background-color: rgba(245, 158, 11, 0.1); color: var(--status-warning); border: 1px solid var(--status-warning); }
-.statusBadge.critical { background-color: rgba(239, 68, 68, 0.1); color: var(--status-critical); border: 1px solid var(--status-critical); }
-
-.metricsGrid {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  margin-top: var(--space-2);
-}
-
-.metric {
+/* ── Health badge ───────────────────── */
+.healthBadge {
   display: flex;
   align-items: center;
-  gap: var(--space-4);
-  padding: var(--space-3);
-  background-color: rgba(255, 255, 255, 0.03);
-  border-radius: var(--radius-md);
+  gap: var(--sp-2);
+  font-size: 0.85rem;
+  font-weight: 800;
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-md);
+  border: 1px solid;
+  margin-bottom: var(--sp-4);
 }
 
-.metricIcon {
-  color: var(--text-secondary);
+/* ── Metrics ────────────────────────── */
+.metrics { display: flex; flex-direction: column; gap: var(--sp-3); }
+.metric { display: flex; align-items: center; justify-content: space-between; }
+.metricLeft { display: flex; align-items: center; gap: var(--sp-2); }
+.metricLabel { font-size: 0.82rem; color: var(--text-secondary); }
+.metricVal { font-size: 1rem; font-weight: 700; font-family: var(--font-mono); }
+.metricBar {
+  height: 5px;
+  background: rgba(255,255,255,0.06);
+  border-radius: var(--r-full);
+  overflow: hidden;
+  margin-bottom: var(--sp-2);
 }
+.metricBarFill { height: 100%; border-radius: var(--r-full); }
 
-.metricData {
+.tamperAlert {
   display: flex;
-  flex-direction: column;
-  flex: 1;
-}
-
-.metricLabel {
+  align-items: center;
+  gap: var(--sp-2);
   font-size: 0.75rem;
-  color: var(--text-tertiary);
-  text-transform: uppercase;
+  font-weight: 800;
+  color: var(--status-critical);
+  background: rgba(248,113,113,0.1);
+  border: 1px solid rgba(248,113,113,0.3);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-md);
+  animation: pulse-dot 1.4s ease infinite;
 }
 
-.metricValue {
-  font-size: 1.25rem;
-  font-weight: 600;
+/* ── Mission Info ────────────────────── */
+.missionInfo { display: flex; flex-direction: column; gap: var(--sp-2); margin-bottom: var(--sp-4); }
+.infoRow {
   display: flex;
-  align-items: center;
   justify-content: space-between;
+  font-size: 0.82rem;
+  padding: var(--sp-1) 0;
+  border-bottom: 1px solid var(--glass-border);
 }
+.infoRow:last-child { border-bottom: none; }
+.infoRow > span:first-child { color: var(--text-tertiary); }
+.infoRow > span:last-child  { color: var(--text-primary); font-weight: 600; }
 
-.trendUp { color: var(--status-critical); }
-.trendDown { color: var(--status-normal); }
-.trendStable { color: var(--text-tertiary); }
+/* ── Route ──────────────────────────── */
+.route { display: flex; flex-direction: column; gap: var(--sp-2); padding-left: var(--sp-2); }
+.routePoint { display: flex; align-items: flex-start; gap: var(--sp-3); }
+.routeDot { width: 12px; height: 12px; border-radius: 50%; margin-top: 4px; flex-shrink: 0; border: 2px solid var(--bg-tertiary); }
+.routeConnector { width: 2px; height: 20px; background: var(--glass-border); margin-left: 5px; }
+.routeLabel { font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.routeName  { font-size: 0.82rem; font-weight: 600; color: var(--text-secondary); }
 
-.missionInfo {
-  padding: var(--space-6);
-}
-
-.missionInfo h3 {
-  font-size: 1.125rem;
-  font-weight: 600;
-  margin-bottom: var(--space-4);
-}
-
-.missionInfo p {
-  font-size: 0.875rem;
-  color: var(--text-secondary);
-  margin-bottom: var(--space-2);
-}
-
-.missionInfo strong {
-  color: var(--text-primary);
-}
-
-.routeInfo {
-  margin-top: var(--space-4);
+/* ── GPS ─────────────────────────────── */
+.gpsDisplay {
+  font-size: 0.85rem;
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-  padding-left: var(--space-2);
-}
-
-.routePoint {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  font-size: 0.875rem;
-  font-weight: 500;
-}
-
-.routeDot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background-color: var(--accent-primary);
-  border: 2px solid var(--bg-tertiary);
-}
-
-.routeLine {
-  width: 2px;
-  height: 20px;
-  background-color: var(--glass-border);
-  margin-left: 5px;
+  gap: var(--sp-2);
+  color: var(--brand-green);
+  background: rgba(0,0,0,0.2);
+  padding: var(--sp-4);
+  border-radius: var(--r-md);
 }
