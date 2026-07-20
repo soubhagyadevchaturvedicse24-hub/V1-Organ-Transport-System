@@ -38,7 +38,7 @@ The system is modeled against the STRIDE threat categorization framework to iden
 The platform uses industry-standard cryptographic algorithms:
 *   **Data in Transit**: All connection channels require TLS 1.3. Symmetric data is encrypted using AES-128-GCM or AES-256-GCM.
 *   **Data at Rest**: MongoDB files are encrypted using AES-256. Sensitive patient medical histories are encrypted at the field level before being written to the database.
-*   **Hashing**: Cryptographic digests use SHA-256. Password records are hashed using bcrypt with a work factor of 12.
+*   **Hashing**: Cryptographic digests use SHA-256. Password records are hashed using an industry-standard adaptive password hashing algorithm (such as bcrypt or Argon2id) with work factors configured for the deployment environment.
 *   **Signatures**: Blockchain transactions and API keys use Elliptic Curve Cryptography (ECDSA secp256r1/prime256v1) for authentication.
 
 ---
@@ -54,7 +54,7 @@ Authentication uses stateless JWT tokens to manage user sessions:
 
 *   **Access Token**: Valid for 15 minutes. Contains the user's ID, role, and authorized hospital scope.
 *   **Refresh Token**: Valid for 7 days. Stored in an `HttpOnly`, `Secure`, `SameSite=Strict` cookie to prevent Cross-Site Scripting (XSS) access.
-*   **Token Revocation**: Active tokens can be revoked immediately by adding their identifiers to a Redis blacklist database.
+*   **Token Revocation**: Active tokens can be revoked immediately by adding their identifiers to a centralized revocation list (such as Redis or another revocation cache appropriate to the deployment).
 
 ---
 
