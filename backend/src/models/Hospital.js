@@ -138,6 +138,7 @@ const hospitalSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
+    optimisticConcurrency: true, // Enables __v version key for optimistic locking
   }
 );
 

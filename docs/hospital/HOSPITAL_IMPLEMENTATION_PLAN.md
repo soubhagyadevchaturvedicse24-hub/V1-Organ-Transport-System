@@ -81,6 +81,37 @@ DRAFT
 | `ACTIVE` | `suspend` | `SUSPENDED` |
 | `SUSPENDED` | `reactivate` | `ACTIVE` |
 | `ACTIVE` | `deactivate` | `DEACTIVATED` |
+| `SUSPENDED` | `deactivate` | `DEACTIVATED` |
+
+### Allowed Actions Per State
+
+| Status | Allowed Actions |
+|--------|----------------|
+| `DRAFT` | `submit` |
+| `PENDING_VERIFICATION` | `review`, `reject` |
+| `UNDER_REVIEW` | `approve`, `reject` |
+| `APPROVED` | `activate` |
+| `ACTIVE` | `suspend`, `deactivate` |
+| `SUSPENDED` | `reactivate`, `deactivate` |
+| `REJECTED` | *(none — terminal state)* |
+| `DEACTIVATED` | *(none — terminal state)* |
+
+```mermaid
+stateDiagram-v2
+    [*] --> DRAFT
+    DRAFT --> PENDING_VERIFICATION : submit
+    PENDING_VERIFICATION --> UNDER_REVIEW : review
+    PENDING_VERIFICATION --> REJECTED : reject
+    UNDER_REVIEW --> APPROVED : approve
+    UNDER_REVIEW --> REJECTED : reject
+    APPROVED --> ACTIVE : activate
+    ACTIVE --> SUSPENDED : suspend
+    ACTIVE --> DEACTIVATED : deactivate
+    SUSPENDED --> ACTIVE : reactivate
+    SUSPENDED --> DEACTIVATED : deactivate
+    REJECTED --> [*]
+    DEACTIVATED --> [*]
+```
 
 ---
 

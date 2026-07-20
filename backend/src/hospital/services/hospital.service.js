@@ -1,18 +1,9 @@
 import Hospital from '../../models/Hospital.js';
 import { hospitalMachine } from '../../workflow/transitions/hospital.transitions.js';
+import { HOSPITAL_ERRORS } from '../../constants/errorCodes.js';
+import { generateHospitalCode } from '../utils/hospitalCode.js';
 import logger from '../../logger/index.js';
 
-/**
- * Auto-generate a hospitalCode.
- * Format: HOS-<CITY_PREFIX>-<5-digit-sequence>
- * e.g. HOS-DEL-00001
- */
-const generateHospitalCode = async (city) => {
-  const prefix = city.slice(0, 3).toUpperCase();
-  const count = await Hospital.countDocuments();
-  const seq = String(count + 1).padStart(5, '0');
-  return `HOS-${prefix}-${seq}`;
-};
 
 export const createHospital = async (data, userId) => {
   const hospitalCode = await generateHospitalCode(data.address.city);
@@ -53,7 +44,7 @@ export const getHospital = async (id) => {
     .populate('approvedBy', 'displayName email role');
 
   if (!hospital) {
-    throw { code: 'HOSPITAL_001', message: 'Hospital not found', status: 404 };
+    throw HOSPITAL_ERRORS.NOT_FOUND;
   }
 
   return hospital;
@@ -62,14 +53,10 @@ export const getHospital = async (id) => {
 export const updateHospital = async (id, data) => {
   const hospital = await Hospital.findById(id);
   if (!hospital) {
-    throw { code: 'HOSPITAL_001', message: 'Hospital not found', status: 404 };
+    throw HOSPITAL_ERRORS.NOT_FOUND;
   }
   if (hospital.status !== 'DRAFT') {
-    throw {
-      code: 'HOSPITAL_002',
-      message: 'Hospital can only be updated while in DRAFT status',
-      status: 409,
-    };
+    throw HOSPITAL_ERRORS.IMMUTABLE_STATUS;
   }
 
   Object.assign(hospital, data);
@@ -87,7 +74,7 @@ export const updateHospital = async (id, data) => {
 const applyTransition = async (id, action, actorId, extra = {}) => {
   const hospital = await Hospital.findById(id);
   if (!hospital) {
-    throw { code: 'HOSPITAL_001', message: 'Hospital not found', status: 404 };
+    throw HOSPITAL_ERRORS.NOT_FOUND;
   }
 
   // Will throw WORKFLOW_002 if the transition is invalid
@@ -98,7 +85,7 @@ const applyTransition = async (id, action, actorId, extra = {}) => {
   // Apply action-specific fields
   if (action === 'reject') {
     if (!extra.rejectionReason) {
-      throw { code: 'HOSPITAL_003', message: 'Rejection reason is required', status: 400 };
+      throw HOSPITAL_ERRORS.REJECTION_REASON_REQUIRED;
     }
     hospital.rejectionReason = extra.rejectionReason;
   }

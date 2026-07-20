@@ -1,11 +1,13 @@
+import { WORKFLOW_ERRORS } from '../constants/errorCodes.js';
+
 /**
  * Generic Workflow State Machine
  *
  * Usage:
  *   const machine = createStateMachine(HOSPITAL_TRANSITIONS);
- *   machine.transition(currentStatus, 'approve');   // → 'APPROVED'
+ *   machine.transition(currentStatus, 'approve');    // → 'APPROVED'
  *   machine.canTransition(currentStatus, 'approve'); // → true | false
- *   machine.getAllowedActions(currentStatus);         // → ['approve', 'reject']
+ *   machine.getAllowedActions(currentStatus);          // → ['approve', 'reject']
  *
  * Transition map format:
  *   {
@@ -17,31 +19,32 @@
  * All domain logic (hospital, donor, organ, transport) lives in the
  * corresponding transitions file.
  */
-
 export const createStateMachine = (transitionMap) => {
+  if (!transitionMap || typeof transitionMap !== 'object' || Object.keys(transitionMap).length === 0) {
+    throw WORKFLOW_ERRORS.MISSING_TRANSITION_MAP;
+  }
+
   /**
-   * Attempt a transition.
+   * Attempt a state transition.
    * @param {string} currentStatus - The entity's current status.
    * @param {string} action - The action being attempted.
    * @returns {string} The new status if the transition is valid.
-   * @throws {Object} Structured error if the transition is invalid.
+   * @throws {Object} Structured error (from WORKFLOW_ERRORS) if invalid.
    */
   const transition = (currentStatus, action) => {
     const rule = transitionMap[action];
 
     if (!rule) {
       throw {
-        code: 'WORKFLOW_001',
-        message: `Unknown action: '${action}'`,
-        status: 400,
+        ...WORKFLOW_ERRORS.UNKNOWN_ACTION,
+        message: `${WORKFLOW_ERRORS.UNKNOWN_ACTION.message}: '${action}'`,
       };
     }
 
     if (!rule.from.includes(currentStatus)) {
       throw {
-        code: 'WORKFLOW_002',
+        ...WORKFLOW_ERRORS.INVALID_TRANSITION,
         message: `Action '${action}' is not allowed when status is '${currentStatus}'. Allowed from: [${rule.from.join(', ')}]`,
-        status: 409,
       };
     }
 
@@ -60,7 +63,7 @@ export const createStateMachine = (transitionMap) => {
   };
 
   /**
-   * Return all actions that are currently valid for a given status.
+   * Return all actions currently valid for a given status.
    * @param {string} currentStatus
    * @returns {string[]}
    */
