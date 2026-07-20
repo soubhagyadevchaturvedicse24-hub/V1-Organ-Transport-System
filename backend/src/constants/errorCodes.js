@@ -87,3 +87,24 @@ export const HOSPITAL_ERRORS = Object.freeze({
     status: 400,
   },
 });
+
+/**
+ * Donor Domain Error Codes
+ */
+export const DONOR_ERRORS = Object.freeze({
+  NOT_FOUND: {
+    code: 'DONOR_001',
+    message: 'Donor not found',
+    status: 404,
+  },
+  IMMUTABLE_STATUS: {
+    code: 'DONOR_002',
+    message: 'Donor identity can only be updated while in DRAFT status',
+    status: 409,
+  },
+  REJECTION_REASON_REQUIRED: {
+    code: 'DONOR_003',
+    message: 'Rejection reason is required',
+    status: 400,
+  },
+});
