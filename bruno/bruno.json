@@ -1,0 +1,9 @@
+{
+  "version": "1",
+  "name": "Organ Transport Platform",
+  "type": "collection",
+  "ignore": [
+    "node_modules",
+    ".git"
+  ]
+}
