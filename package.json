@@ -1,0 +1,32 @@
+{
+  "name": "organ-transport-system",
+  "version": "1.0.0",
+  "description": "Blockchain-Enabled Human Organ Transplantation & Smart Organ Transport Platform",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write \"**/*.{js,jsx,json,md,yml,css,scss}\"",
+    "prepare": "husky install"
+  },
+  "devDependencies": {
+    "eslint": "^9.0.0",
+    "globals": "^17.7.0",
+    "husky": "^8.0.0",
+    "lint-staged": "^15.0.0",
+    "prettier": "^3.0.0"
+  },
+  "lint-staged": {
+    "*.{js,jsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,yml,css,scss}": [
+      "prettier --write"
+    ]
+  }
+}
