@@ -149,9 +149,19 @@ function useSimulator(cfg) {
     addLog('info', '↺ Simulator reset.');
   }, [stop, cfg, addLog]);
 
+  const overrideTemp = useCallback((val) => {
+    state.current.temp = val;
+    addLog('info', `Manual override: Temp set to ${val}°C`);
+  }, [addLog]);
+
+  const overrideBattery = useCallback((val) => {
+    state.current.battery = val;
+    addLog('info', `Manual override: Battery set to ${val}%`);
+  }, [addLog]);
+
   useEffect(() => () => clearInterval(timerRef.current), []);
 
-  return { running, telemetry, logs, ticks, connected, start, stop, reset };
+  return { running, telemetry, logs, ticks, connected, start, stop, reset, overrideTemp, overrideBattery };
 }
 
 /* ════════════════════════════════════════════════════
@@ -277,6 +287,34 @@ const SimulatorPage = () => {
               <div className={styles.stat}>
                 <span className={styles.statVal} style={{ color:'var(--brand-amber)' }}>{cfg.boxId}</span>
                 <span className={styles.statLbl}>Box ID</span>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Live Overrides */}
+          <motion.div className={`glass-panel ${styles.controlCard}`} initial={{ opacity:0, y:16 }} animate={{ opacity:1, y:0 }} transition={{ delay:0.15 }}>
+            <div className={styles.cardHead}>
+              <Settings size={16} style={{ color:'var(--brand-purple)' }} />
+              <h3>Live Overrides</h3>
+            </div>
+            <div className={styles.overrideList}>
+              <div className={styles.overrideRow}>
+                <label className={styles.overrideLabel}>Force Temp (°C)</label>
+                <input type="range" className={styles.slider} min="0" max="15" step="0.5"
+                  value={t ? t.temperature : cfg.tempTarget}
+                  onChange={e => sim.overrideTemp(parseFloat(e.target.value))}
+                  disabled={!sim.running}
+                />
+                <span className={`mono ${styles.overrideVal}`}>{t ? t.temperature : cfg.tempTarget}°C</span>
+              </div>
+              <div className={styles.overrideRow}>
+                <label className={styles.overrideLabel}>Force Battery (%)</label>
+                <input type="range" className={styles.slider} min="0" max="100" step="1"
+                  value={t ? t.batteryLevel : 100}
+                  onChange={e => sim.overrideBattery(parseFloat(e.target.value))}
+                  disabled={!sim.running}
+                />
+                <span className={`mono ${styles.overrideVal}`}>{t ? t.batteryLevel : 100}%</span>
               </div>
             </div>
           </motion.div>

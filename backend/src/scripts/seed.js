@@ -16,29 +16,10 @@ import * as missionService from '../transport/services/mission.service.js';
 
 dotenv.config();
 
-const seedData = async () => {
+export const seedData = async () => {
   try {
-    await connectDB();
-    initializeAuditSubscriber(); // Enables blockchain ledger generation for events
-    console.log('🌱 Connected to DB. Starting Seeder...');
-
-    const isReset = process.argv.includes('--reset');
-    
-    if (isReset) {
-      console.log('⚠️ Resetting database collections...');
-      await Hospital.deleteMany({});
-      await Donor.deleteMany({});
-      await Organ.deleteMany({});
-      await Match.deleteMany({});
-      await TransportBox.deleteMany({});
-      await TransportMission.deleteMany({});
-      
-      // Since LedgerBlock is immutable, native Mongoose throws an error on delete.
-      // Bypass using native MongoDB driver:
-      await mongoose.connection.collection('ledgerblocks').deleteMany({});
-      await mongoose.connection.collection('telemetrys').deleteMany({});
-      console.log('✅ Collections cleared.');
-    }
+    // We only connect and initialize subscriber if running standalone
+    // For programmatic use, they should be initialized already.
 
     const platformAdminId = new mongoose.Types.ObjectId().toString(); // Mock admin
     const courierId = new mongoose.Types.ObjectId().toString(); // Mock courier
@@ -152,7 +133,6 @@ const seedData = async () => {
 
       console.log('📡 Generating Mock Telemetry for Mission...');
       // Manually trigger some telemetry
-      // Instead of the rest client, we can bypass using the collection directly to simulate history
       await mongoose.connection.collection('telemetrys').insertOne({
         boxId: box._id.toString(),
         missionId: mission._id.toString(),
@@ -167,12 +147,39 @@ const seedData = async () => {
     }
 
     console.log('🎉 Seed complete! E2E scenario successfully generated.');
-    process.exit(0);
 
   } catch (error) {
     console.error('❌ Seeder Failed:', error);
-    process.exit(1);
+    throw error;
   }
 };
 
-seedData();
+// Standalone execution
+if (process.argv[1] && process.argv[1].endsWith('seed.js')) {
+  (async () => {
+    try {
+      await connectDB();
+      initializeAuditSubscriber();
+      console.log('🌱 Connected to DB. Starting Seeder...');
+
+      const isReset = process.argv.includes('--reset');
+      if (isReset) {
+        console.log('⚠️ Resetting database collections...');
+        await Hospital.deleteMany({});
+        await Donor.deleteMany({});
+        await Organ.deleteMany({});
+        await Match.deleteMany({});
+        await TransportBox.deleteMany({});
+        await TransportMission.deleteMany({});
+        await mongoose.connection.collection('ledgerblocks').deleteMany({});
+        await mongoose.connection.collection('telemetrys').deleteMany({});
+        console.log('✅ Collections cleared.');
+      }
+
+      await seedData();
+      process.exit(0);
+    } catch (e) {
+      process.exit(1);
+    }
+  })();
+}

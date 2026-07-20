@@ -63,6 +63,13 @@
 .statVal { font-size: 1.125rem; font-weight: 800; font-family: var(--font-mono); color: var(--text-primary); }
 .statLbl { font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
 
+/* ── Overrides ───────────────────────── */
+.overrideList { display: flex; flex-direction: column; gap: var(--sp-4); }
+.overrideRow { display: flex; align-items: center; gap: var(--sp-3); }
+.overrideLabel { font-size: 0.75rem; color: var(--text-secondary); width: 100px; flex-shrink: 0; }
+.slider { flex: 1; accent-color: var(--brand-purple); cursor: pointer; }
+.overrideVal { font-size: 0.85rem; color: var(--text-primary); font-weight: 700; width: 45px; text-align: right; flex-shrink: 0; }
+
 /* ── Gauges ─────────────────────────── */
 .waiting { color: var(--text-muted); font-size: 0.85rem; text-align: center; padding: var(--sp-6) 0; }
 .gaugeList { display: flex; flex-direction: column; gap: var(--sp-4); }
