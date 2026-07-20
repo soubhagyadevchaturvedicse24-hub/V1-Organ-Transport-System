@@ -1,0 +1,26 @@
+meta {
+  name: Create Donor
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/v1/donors
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "hospitalId": "HOSPITAL_ID_HERE",
+    "donorType": "DECEASED",
+    "bloodGroup": "O+",
+    "age": 45,
+    "gender": "MALE",
+    "medicalSummary": "Healthy male, no chronic illness history."
+  }
+}

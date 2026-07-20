@@ -1,0 +1,15 @@
+meta {
+  name: Submit Donor
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/v1/donors/{{donorId}}/submit
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}

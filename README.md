@@ -54,8 +54,8 @@ All features are reviewed and merged into `develop` using a `--no-ff` strategy.
 | `architecture-v1.0` | Architecture Freeze | ✅ Complete |
 | `sprint-1-complete` | Sprint 1 — Project Bootstrap | ✅ Complete |
 | `v0.2.0-auth` | Sprint 2 — Authentication & RBAC | ✅ Complete |
-| — | Sprint 3 — Hospital Module | 🔄 In Progress |
-| — | Sprint 4 — Donor Module | ⬜ Pending |
+| `v0.3.0-hospital` | Sprint 3 — Hospital Module | ✅ Complete |
+| `v0.4.0-donor` | Sprint 4 — Donor Module | ✅ Complete |
 | — | Sprint 5 — Recipient & Organ Module | ⬜ Pending |
 | — | Sprint 6 — Matching Engine | ⬜ Pending |
 | — | Sprint 7 — IoT Simulator | ⬜ Pending |
@@ -66,8 +66,8 @@ All features are reviewed and merged into `develop` using a `--no-ff` strategy.
 ## Sprint Roadmap
 - [x] **Sprint 1:** Project Bootstrap
 - [x] **Sprint 2:** Authentication & RBAC (`v0.2.0-auth`)
-- [ ] **Sprint 3:** Hospital Module
-- [ ] **Sprint 4:** Donor Module
+- [x] **Sprint 3:** Hospital Module (`v0.3.0-hospital`)
+- [x] **Sprint 4:** Donor Module (`v0.4.0-donor`)
 - [ ] **Sprint 5:** Organ Module
 - [ ] **Sprint 6:** Matching Algorithm
 - [ ] **Sprint 7:** Simulator
