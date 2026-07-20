@@ -1,5 +1,5 @@
 export const SIMULATOR_CONFIG = Object.freeze({
-  API_BASE_URL: process.env.API_BASE_URL || 'http://localhost:3000/api/v1',
+  API_BASE_URL: process.env.API_BASE_URL || 'http://localhost:5000/api/v1',
   POLLING_INTERVAL_NORMAL_MS: 30000, // 30 seconds
   POLLING_INTERVAL_ALERT_MS: 5000,   // 5 seconds
   TEMPERATURE_SPIKE_CHANCE: 0.05,    // 5% chance per tick
