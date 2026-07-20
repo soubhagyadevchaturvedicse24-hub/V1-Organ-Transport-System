@@ -1,54 +1,72 @@
 import User from '../../models/User.js';
 import { generateAccessToken, generateRefreshToken, hashToken } from '../utils/token.util.js';
+import { AUTH_ERRORS } from '../../constants/errorCodes.js';
 import logger from '../../logger/index.js';
+
+/**
+ * Lockout configuration.
+ * Duration and max attempts are read from env so they are configurable
+ * without touching code.
+ */
+const MAX_FAILED_ATTEMPTS = parseInt(process.env.LOCKOUT_MAX_ATTEMPTS || '5', 10);
+const LOCKOUT_DURATION_MS = parseInt(process.env.LOCKOUT_DURATION_MINUTES || '15', 10) * 60 * 1000;
 
 export const loginUser = async (email, password) => {
   const user = await User.findOne({ email });
 
   if (!user) {
-    logger.warn(`LOGIN_FAILED: User not found - ${email}`);
-    throw { code: 'AUTH_001', message: 'Invalid credentials', status: 401 };
+    logger.warn(`LOGIN_FAILED: No user with email - ${email}`);
+    throw AUTH_ERRORS.INVALID_CREDENTIALS;
   }
 
-  if (user.status !== 'ACTIVE') {
-    logger.warn(`LOGIN_FAILED: Account not active - ${email} [Status: ${user.status}]`);
-    throw { code: 'AUTH_008', message: 'Account is not active', status: 403 };
-  }
-
-  if (user.lockUntil && user.lockUntil > Date.now()) {
+  // Check account status before password comparison
+  if (user.status === 'LOCKED' && user.lockUntil && user.lockUntil > Date.now()) {
     logger.warn(`LOGIN_FAILED: Account locked - ${email}`);
-    throw { code: 'AUTH_004', message: 'Account is temporarily locked', status: 423 };
+    throw AUTH_ERRORS.ACCOUNT_LOCKED;
+  }
+
+  // If lock has expired, automatically unlock
+  if (user.status === 'LOCKED' && user.lockUntil && user.lockUntil <= Date.now()) {
+    user.status = 'ACTIVE';
+    user.failedLoginAttempts = 0;
+    user.lockUntil = null;
+    await user.save();
+    logger.info(`ACCOUNT_UNLOCKED: Lock expired, account restored - ${email}`);
+  }
+
+  if (!['ACTIVE'].includes(user.status)) {
+    logger.warn(`LOGIN_FAILED: Account not active - ${email} [Status: ${user.status}]`);
+    throw AUTH_ERRORS.ACCOUNT_NOT_ACTIVE;
   }
 
   const isMatch = await user.comparePassword(password);
 
   if (!isMatch) {
     user.failedLoginAttempts += 1;
-    if (user.failedLoginAttempts >= 5) {
-      user.lockUntil = new Date(Date.now() + 15 * 60 * 1000); // 15 mins lock
+
+    if (user.failedLoginAttempts >= MAX_FAILED_ATTEMPTS) {
+      user.lockUntil = new Date(Date.now() + LOCKOUT_DURATION_MS);
       user.status = 'LOCKED';
       logger.warn(`ACCOUNT_LOCKED: Too many failed attempts - ${email}`);
     }
+
     await user.save();
-    logger.warn(`LOGIN_FAILED: Invalid password - ${email}`);
-    throw { code: 'AUTH_001', message: 'Invalid credentials', status: 401 };
+    logger.warn(`LOGIN_FAILED: Invalid password attempt ${user.failedLoginAttempts} - ${email}`);
+    throw AUTH_ERRORS.INVALID_CREDENTIALS;
   }
 
-  // Successful login, reset attempts
+  // Reset failed attempts on success
   user.failedLoginAttempts = 0;
   user.lockUntil = null;
-  
-  if (user.status === 'LOCKED') {
-    user.status = 'ACTIVE';
-  }
 
   const accessToken = generateAccessToken(user);
   const refreshToken = generateRefreshToken();
 
+  // Store only the hash — never the raw refresh token
   user.refreshTokenHash = hashToken(refreshToken);
   await user.save();
 
-  logger.info(`LOGIN_SUCCESS: User logged in - ${email}`);
+  logger.info(`LOGIN_SUCCESS: ${email}`);
 
   return {
     user: {
@@ -56,42 +74,43 @@ export const loginUser = async (email, password) => {
       email: user.email,
       role: user.role,
       displayName: user.displayName,
-      status: user.status
+      status: user.status,
     },
     accessToken,
-    refreshToken
+    refreshToken,
   };
 };
 
 export const refreshUserToken = async (refreshToken) => {
   if (!refreshToken) {
-    throw { code: 'AUTH_006', message: 'Refresh token required', status: 401 };
+    throw AUTH_ERRORS.MISSING_TOKEN;
   }
 
+  // Hash the incoming token and look it up — raw token is never stored
   const tokenHash = hashToken(refreshToken);
   const user = await User.findOne({ refreshTokenHash: tokenHash });
 
   if (!user) {
-    logger.warn(`TOKEN_REFRESH_FAILED: Invalid refresh token`);
-    throw { code: 'AUTH_001', message: 'Invalid or expired refresh token', status: 401 };
+    logger.warn(`TOKEN_REFRESH_FAILED: Token hash not found — possible reuse attack`);
+    throw AUTH_ERRORS.INVALID_CREDENTIALS;
   }
 
   if (user.status !== 'ACTIVE') {
-    throw { code: 'AUTH_008', message: 'Account is not active', status: 403 };
+    throw AUTH_ERRORS.ACCOUNT_NOT_ACTIVE;
   }
 
-  // Generate new tokens (Rotation)
+  // Rotation: generate new pair and immediately invalidate the old hash
   const newAccessToken = generateAccessToken(user);
   const newRefreshToken = generateRefreshToken();
 
   user.refreshTokenHash = hashToken(newRefreshToken);
   await user.save();
 
-  logger.info(`TOKEN_REFRESHED: Token rotated - ${user.email}`);
+  logger.info(`TOKEN_REFRESHED: Rotated token for ${user.email}`);
 
   return {
     accessToken: newAccessToken,
-    refreshToken: newRefreshToken
+    refreshToken: newRefreshToken,
   };
 };
 
@@ -100,6 +119,6 @@ export const logoutUser = async (userId) => {
   if (user) {
     user.refreshTokenHash = null;
     await user.save();
-    logger.info(`LOGOUT: User logged out - ${user.email}`);
+    logger.info(`LOGOUT: ${user.email}`);
   }
 };

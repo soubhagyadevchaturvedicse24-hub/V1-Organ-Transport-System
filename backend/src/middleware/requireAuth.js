@@ -1,22 +1,31 @@
 import { verifyAccessToken } from '../auth/utils/token.util.js';
+import { AUTH_ERRORS } from '../constants/errorCodes.js';
+import logger from '../logger/index.js';
 
+/**
+ * JWT verification middleware.
+ * Populates req.user with { sub, role, status } from the decoded payload.
+ * Must be placed before requirePermission in any route chain.
+ */
 export const requireAuth = (req, res, next) => {
   const authHeader = req.headers.authorization;
+
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return next({ code: 'AUTH_006', message: 'Missing or invalid authorization header', status: 401 });
+    return next(AUTH_ERRORS.MISSING_TOKEN);
   }
 
   const token = authHeader.split(' ')[1];
   const decoded = verifyAccessToken(token);
 
   if (!decoded) {
-    return next({ code: 'AUTH_002', message: 'Token is invalid or has expired', status: 401 });
+    logger.warn(`TOKEN_EXPIRED: Invalid or expired JWT on ${req.method} ${req.path}`);
+    return next(AUTH_ERRORS.TOKEN_EXPIRED);
   }
 
   if (decoded.status !== 'ACTIVE') {
-    return next({ code: 'AUTH_008', message: 'Account is not active', status: 403 });
+    return next(AUTH_ERRORS.ACCOUNT_NOT_ACTIVE);
   }
 
-  req.user = decoded;
+  req.user = decoded; // { sub, role, status, iat, exp }
   next();
 };

@@ -36,7 +36,7 @@ const userSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['ACTIVE', 'PENDING_APPROVAL', 'SUSPENDED', 'LOCKED', 'DISABLED'],
+      enum: ['ACTIVE', 'PENDING_APPROVAL', 'SUSPENDED', 'LOCKED', 'DISABLED', 'DELETED'],
       default: 'PENDING_APPROVAL',
     },
     failedLoginAttempts: {
@@ -50,6 +50,7 @@ const userSchema = new mongoose.Schema(
     refreshTokenHash: {
       type: String,
       default: null,
+      index: true, // Fast lookup during token refresh
     },
   },
   {

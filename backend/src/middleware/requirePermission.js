@@ -1,47 +1,91 @@
-const ROLE_PERMISSIONS = {
+import { AUTH_ERRORS } from '../constants/errorCodes.js';
+import { HOSPITAL_PERMISSIONS } from '../permissions/hospital.permissions.js';
+import { ORGAN_PERMISSIONS } from '../permissions/organ.permissions.js';
+import { TRANSPORT_PERMISSIONS } from '../permissions/transport.permissions.js';
+import { AUDIT_PERMISSIONS, DONOR_PERMISSIONS } from '../permissions/domain.permissions.js';
+import logger from '../logger/index.js';
+
+/**
+ * Role → Permission mapping.
+ * Built from named constants — no magic strings.
+ */
+const ROLE_PERMISSIONS = Object.freeze({
   PLATFORM_ADMIN: [
-    'auth:login', 'auth:refresh', 'hospital:create', 'hospital:view', 
-    'donor:view', 'mission:view', 'audit:view'
+    HOSPITAL_PERMISSIONS.CREATE,
+    HOSPITAL_PERMISSIONS.VIEW,
+    HOSPITAL_PERMISSIONS.UPDATE,
+    HOSPITAL_PERMISSIONS.APPROVE,
+    HOSPITAL_PERMISSIONS.SUSPEND,
+    DONOR_PERMISSIONS.VIEW,
+    ORGAN_PERMISSIONS.VIEW,
+    TRANSPORT_PERMISSIONS.VIEW_MISSION,
+    AUDIT_PERMISSIONS.VIEW,
   ],
   NOTTO_OFFICER: [
-    'auth:login', 'auth:refresh', 'hospital:create', 'hospital:view', 
-    'mission:view', 'audit:view'
+    HOSPITAL_PERMISSIONS.CREATE,
+    HOSPITAL_PERMISSIONS.VIEW,
+    HOSPITAL_PERMISSIONS.APPROVE,
+    DONOR_PERMISSIONS.VIEW,
+    TRANSPORT_PERMISSIONS.VIEW_MISSION,
+    AUDIT_PERMISSIONS.VIEW,
   ],
   ROTTO_SOTTO_OFFICER: [
-    'auth:login', 'auth:refresh', 'hospital:view', 'mission:view', 
-    'audit:view'
+    HOSPITAL_PERMISSIONS.VIEW,
+    DONOR_PERMISSIONS.VIEW,
+    TRANSPORT_PERMISSIONS.VIEW_MISSION,
+    AUDIT_PERMISSIONS.VIEW,
   ],
   HOSPITAL_COORDINATOR: [
-    'auth:login', 'auth:refresh', 'hospital:view', 'donor:create', 
-    'donor:view', 'mission:view'
+    HOSPITAL_PERMISSIONS.VIEW,
+    DONOR_PERMISSIONS.CREATE,
+    DONOR_PERMISSIONS.VIEW,
+    TRANSPORT_PERMISSIONS.VIEW_MISSION,
   ],
   TRANSPLANT_SURGEON: [
-    'auth:login', 'auth:refresh', 'hospital:view', 'donor:create', 
-    'donor:view', 'mission:view', 'organ:match'
+    HOSPITAL_PERMISSIONS.VIEW,
+    DONOR_PERMISSIONS.CREATE,
+    DONOR_PERMISSIONS.VIEW,
+    ORGAN_PERMISSIONS.VIEW,
+    ORGAN_PERMISSIONS.MATCH,
+    TRANSPORT_PERMISSIONS.VIEW_MISSION,
   ],
   TRANSPORT_COORDINATOR: [
-    'auth:login', 'auth:refresh', 'mission:view', 'transport:start', 
-    'transport:complete'
+    TRANSPORT_PERMISSIONS.VIEW_MISSION,
+    TRANSPORT_PERMISSIONS.START,
+    TRANSPORT_PERMISSIONS.COMPLETE,
   ],
   COURIER: [
-    'auth:login', 'auth:refresh', 'mission:view', 'transport:start', 
-    'transport:complete'
+    TRANSPORT_PERMISSIONS.VIEW_MISSION,
+    TRANSPORT_PERMISSIONS.START,
+    TRANSPORT_PERMISSIONS.COMPLETE,
   ],
   AUDITOR: [
-    'auth:login', 'auth:refresh', 'audit:view'
-  ]
-};
+    AUDIT_PERMISSIONS.VIEW,
+    HOSPITAL_PERMISSIONS.VIEW,
+    DONOR_PERMISSIONS.VIEW,
+    ORGAN_PERMISSIONS.VIEW,
+    TRANSPORT_PERMISSIONS.VIEW_MISSION,
+  ],
+});
 
+/**
+ * Middleware factory: requirePermission('hospital:create')
+ * Must be used after requireAuth — relies on req.user being populated.
+ */
 export const requirePermission = (requiredPermission) => {
   return (req, res, next) => {
     if (!req.user || !req.user.role) {
-      return next({ code: 'AUTH_003', message: 'Access denied. Role not found.', status: 403 });
+      logger.warn(`PERMISSION_DENIED: No role found on req.user`);
+      return next(AUTH_ERRORS.ACCESS_DENIED);
     }
 
     const permissions = ROLE_PERMISSIONS[req.user.role] || [];
-    
+
     if (!permissions.includes(requiredPermission)) {
-      return next({ code: 'AUTH_003', message: 'Access denied. Insufficient permissions.', status: 403 });
+      logger.warn(
+        `PERMISSION_DENIED: User [${req.user.sub}] role [${req.user.role}] lacks permission [${requiredPermission}]`
+      );
+      return next(AUTH_ERRORS.ACCESS_DENIED);
     }
 
     next();
