@@ -85,6 +85,24 @@ const transportMissionSchema = new mongoose.Schema(
       type: [chainOfCustodyEventSchema],
       default: [],
     },
+    health: {
+      status: {
+        type: String,
+        enum: ['NORMAL', 'WARNING', 'CRITICAL'],
+        default: 'NORMAL',
+      },
+      score: {
+        type: Number,
+        default: 100,
+      },
+      lastEvaluation: {
+        type: Date,
+      },
+      reasons: {
+        type: [String],
+        default: [],
+      }
+    },
   },
   {
     timestamps: true,

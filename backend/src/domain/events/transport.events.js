@@ -7,4 +7,5 @@ export const TRANSPORT_EVENTS = Object.freeze({
   TRANSPORT_CANCELLED: 'transport.cancelled',
   TELEMETRY_RECEIVED: 'telemetry.received',
   TELEMETRY_ALERT: 'telemetry.alert',
+  HEALTH_STATUS_CHANGED: 'transport.health_status_changed',
 });
