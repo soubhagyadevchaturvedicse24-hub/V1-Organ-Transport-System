@@ -57,6 +57,22 @@ export const scoreRecipients = (organ, recipients) => {
         score += breakdown.distance;
       }
     }
+    
+    const explanation = `Compatibility:
+✔ Blood Group
+✔ Organ Type
+
+Eligibility:
+✔ Active Recipient
+${recipient.hospitalId ? '✔ Active Hospital' : ''}
+
+Scoring:
+Urgency ............ +${breakdown.urgency.toFixed(2)}
+Waiting Time ....... +${breakdown.waitingTime.toFixed(2)}
+Distance ........... +${breakdown.distance.toFixed(2)}
+Pediatric .......... +${breakdown.pediatric.toFixed(2)}
+
+Final Score ........ ${score.toFixed(2)}`;
 
     return {
       recipient,
@@ -66,7 +82,8 @@ export const scoreRecipients = (organ, recipients) => {
         waitingTime: Number(breakdown.waitingTime.toFixed(2)),
         distance: Number(breakdown.distance.toFixed(2)),
         pediatric: Number(breakdown.pediatric.toFixed(2)),
-      }
+      },
+      explanation
     };
   });
 };

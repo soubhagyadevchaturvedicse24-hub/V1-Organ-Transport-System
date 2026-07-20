@@ -17,6 +17,10 @@ const matchRecommendationSchema = new mongoose.Schema(
       distance: { type: Number, default: 0 },
       pediatric: { type: Number, default: 0 },
     },
+    explanation: {
+      type: String,
+      default: '',
+    },
     status: {
       type: String,
       enum: ['PENDING_RESPONSE', 'ACCEPTED', 'DECLINED'],

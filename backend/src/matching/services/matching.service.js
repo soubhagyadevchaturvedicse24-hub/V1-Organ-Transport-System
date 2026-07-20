@@ -62,6 +62,7 @@ export const runMatching = async (organId, actorId = 'SYSTEM') => {
       recipientId: m.recipient._id,
       score: m.score,
       breakdown: m.breakdown,
+      explanation: m.explanation,
       status: 'PENDING_RESPONSE'
     }));
 
