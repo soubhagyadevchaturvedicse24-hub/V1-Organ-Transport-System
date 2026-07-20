@@ -57,7 +57,7 @@ All features are reviewed and merged into `develop` using a `--no-ff` strategy.
 | `v0.3.0-hospital` | Sprint 3 — Hospital Module | ✅ Complete |
 | `v0.4.0-donor` | Sprint 4 — Donor Module | ✅ Complete |
 | `v0.5.0-organ` | Sprint 5 — Recipient & Organ Module | ✅ Complete |
-| — | Sprint 6 — Matching Engine | ⬜ Pending |
+| `v0.6.0-matching` | Sprint 6 — Matching Engine | ✅ Complete |
 | — | Sprint 7 — IoT Simulator | ⬜ Pending |
 | — | Sprint 8 — Dashboard UI | ⬜ Pending |
 | — | Sprint 9 — Blockchain Integration | ⬜ Pending |
@@ -69,7 +69,7 @@ All features are reviewed and merged into `develop` using a `--no-ff` strategy.
 - [x] **Sprint 3:** Hospital Module (`v0.3.0-hospital`)
 - [x] **Sprint 4:** Donor Module (`v0.4.0-donor`)
 - [x] **Sprint 5:** Organ Module (`v0.5.0-organ`)
-- [ ] **Sprint 6:** Matching Algorithm
+- [x] **Sprint 6:** Matching Algorithm (`v0.6.0-matching`)
 - [ ] **Sprint 7:** Simulator
 - [ ] **Sprint 8:** Dashboard UI
 - [ ] **Sprint 9:** Blockchain Integration
