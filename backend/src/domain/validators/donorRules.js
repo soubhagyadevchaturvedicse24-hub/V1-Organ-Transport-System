@@ -22,11 +22,7 @@ export const canCreateOrganFromDonor = (donor) => {
   const validStates = ['AVAILABLE', 'COMPLETED'];
   
   if (!validStates.includes(donor.status)) {
-    throw {
-      code: 'DONOR_004',
-      message: `Cannot create organ from donor in status ${donor.status}. Must be AVAILABLE or COMPLETED.`,
-      status: 409
-    };
+    throw DONOR_ERRORS.INVALID_STATUS_FOR_ORGAN;
   }
   
   return true;
