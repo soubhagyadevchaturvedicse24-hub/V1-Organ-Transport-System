@@ -12,6 +12,7 @@ import { describe, it, expect } from 'vitest';
 import { createStateMachine, WORKFLOW_ERRORS } from '../src/workflow/index.js';
 import { hospitalMachine, HOSPITAL_TRANSITIONS } from '../src/workflow/transitions/hospital.transitions.js';
 import { donorMachine, DONOR_TRANSITIONS } from '../src/workflow/transitions/donor.transitions.js';
+import { organMachine, ORGAN_TRANSITIONS } from '../src/workflow/transitions/organ.transitions.js';
 
 // ─── Controlled test transition map ──────────────────────────────────────────
 const TEST_TRANSITIONS = Object.freeze({
@@ -72,6 +73,34 @@ describe('transition()', () => {
     expect(() => machine.transition('CLOSED', 'activate')).toThrow(
       expect.objectContaining({ code: WORKFLOW_ERRORS.INVALID_TRANSITION.code })
     );
+  });
+
+  describe('Organ State Machine', () => {
+    it('should be frozen', () => {
+      expect(Object.isFrozen(ORGAN_TRANSITIONS)).toBe(true);
+    });
+
+    it('should allow valid transitions', () => {
+      expect(organMachine.transition('RECOVERED', 'beginAssessment')).toBe('IN_ASSESSMENT');
+      expect(organMachine.transition('IN_ASSESSMENT', 'approveViability')).toBe('AWAITING_ALLOCATION');
+      expect(organMachine.transition('AWAITING_ALLOCATION', 'allocate')).toBe('ALLOCATED');
+      expect(organMachine.transition('ALLOCATED', 'dispatch')).toBe('IN_TRANSIT');
+      expect(organMachine.transition('IN_TRANSIT', 'receive')).toBe('TRANSPLANTED');
+    });
+
+    it('should allow discard from multiple states', () => {
+      expect(organMachine.transition('RECOVERED', 'discard')).toBe('DISCARDED');
+      expect(organMachine.transition('IN_ASSESSMENT', 'discard')).toBe('DISCARDED');
+      expect(organMachine.transition('AWAITING_ALLOCATION', 'discard')).toBe('DISCARDED');
+      expect(organMachine.transition('ALLOCATED', 'discard')).toBe('DISCARDED');
+      expect(organMachine.transition('IN_TRANSIT', 'discard')).toBe('DISCARDED');
+    });
+
+    it('should block invalid transitions', () => {
+      expect(() => organMachine.transition('RECOVERED', 'approveViability')).toThrow(
+        expect.objectContaining({ code: WORKFLOW_ERRORS.INVALID_TRANSITION.code })
+      );
+    });
   });
 });
 
