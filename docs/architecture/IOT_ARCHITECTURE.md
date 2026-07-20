@@ -1,47 +1,144 @@
 # Device Layer & IoT Edge Architecture Document
-## ESP32 Smart Organ Transport Box & Digital Twin Simulator
+## ESP32 Smart Organ Transport Box & First-Class Digital Twin Simulator
 
-This document specifies the hardware components, digital twin simulator, interface contracts, offline queuing mechanisms, power profiles, and communication protocols for the Device Layer.
+This document specifies the hardware components, digital twin simulator, interface contracts, environmental simulation engines, replay modes, and communication protocols for the Device Layer.
 
 ---
 
-## 1. Device Layer Overview & Design Pattern
-To enable parallel development and ensure hardware independence, the system implements a **Simulator-First Digital Twin Architecture**. The platform does not couple backend API services directly to physical hardware. Instead, all device operations are defined by a stable **Device Interface Contract**.
+## 1. Device Layer Overview & Abstraction Design
+To achieve hardware independence and enable parallel development, the platform uses a **Hardware Abstraction Layer (HAL)**. The core application services interface with devices exclusively through a standardized **Virtual Device Interface**.
 
 ```
                            Core Application Services
                           (API Gateway / IoT Service)
                                        │
                                        ▼
-                            [ Device Interface ]
+                         [ Virtual Device Interface ]
                                        │
-                 ┌─────────────────────┴─────────────────────┐
-                 │                                           │
-                 ▼                                           ▼
-      [ ESP32 Digital Twin ]                      [ ESP32 Hardware ]
-        (Node.js Simulator)                       (C++ / FreeRTOS Edge)
+         ┌───────────────────┬─────────┴─────────┬───────────────────┐
+         ▼                   ▼                   ▼                   ▼
+     [Simulator]      [Test Device]      [Replay Device]     [ESP32 Hardware]
+     (Node.js Sim)    (Mock Hardware)    (Historical Logs)   (C++ / FreeRTOS)
 ```
 
-Both the **ESP32 Simulator** and the **ESP32 Hardware** implement the identical payload format and communication contract, allowing the system to switch between simulated and physical devices without backend modifications.
+### The Virtual Device Interface Contract
+Any device layer implementation (virtual or physical) must implement the following TypeScript-style interface:
+
+```typescript
+interface VirtualDevice {
+  connect(gatewayUrl: string): Promise<boolean>;
+  authenticate(deviceUuid: string, privateKeyHash: string): Promise<string>; // returns JWT
+  sendTelemetry(payload: TelemetryPayload): Promise<TelemetryResponse>;
+  sendAlert(alert: AlertPayload): Promise<AlertResponse>;
+  heartbeat(): Promise<void>;
+  syncOfflineLogs(logs: TelemetryPayload[]): Promise<SyncResponse>;
+}
+```
+
+This abstraction ensures that the backend and dashboard operate identically whether talking to a local software mock, a testing script, a replayed log file, or physical hardware.
 
 ---
 
-## 2. Device Interface Contract
-All devices operating in the transport layer must implement the following core interface interactions:
+## 2. Simulation Architecture as a First-Class Citizen
+The simulator is not a temporary stub; it is built as a **first-class citizen** within the project repository to support automated testing, CI/CD pipelines, training, and hardware-free demonstrations.
 
-*   `authenticate()`: Resolves JWT credentials using cryptographic device identifiers.
-*   `sendTelemetry()`: Transmits runtime metrics (temperature, coordinates, battery, and lock status) to the gateway.
-*   `reportAlert()`: Dispatches high-priority event frames (lid breaches or temperature spikes).
-*   `syncOfflineLogs()`: Uploads buffered telemetry records once connectivity is restored.
-*   `heartbeat()`: Confirms device connection status during idle phases.
+### Simulation Folder Structure
+```text
+simulation/
+│
+├── engine/                  # Core simulation loop, clock controllers, and state machine
+│
+├── scenarios/               # Standardized state transitions for testing
+│   ├── normal-route.json
+│   ├── temperature-breach.json
+│   ├── tamper.json
+│   ├── battery-low.json
+│   ├── traffic-delay.json
+│   └── airport-transfer.json
+│
+├── routes/                  # GPS route waypoints (coordinates, expected transit times)
+│   ├── raipur-to-nagpur.json
+│   └── aiims-to-airport.json
+│
+├── devices/                 # Device class implementations (VirtualDevice instances)
+│   ├── simulated-box.js
+│   └── replay-box.js
+│
+├── replay/                  # Reads historic database files and replays them
+│   └── log-replayer.js
+│
+├── payloads/                # Validation schemas for JSON telemetry packets
+│
+└── README.md
+```
 
 ---
 
-## 3. Hardware Component Specification (Physical Implementation)
+## 3. Environmental & Scenario Simulation Engines
+
+### Environmental Modeling
+The **Environmental Simulation Engine** models changing physical contexts during transit (e.g., transport from Raipur AIIMS ──> Airport ──> Flight ──> Nagpur Hospital). It dynamically adjusts:
+*   **GPS & Speed**: Moves coordinates along route vectors, calculating speeds, simulated traffic delays, and altitude-induced network drops.
+*   **Temperature**: Models gradual thermal dynamics (e.g. ambient temperature shifts, ice melt rates, insulation quality).
+*   **Battery Drain**: Simulates power usage based on device states (higher drain when GPS/WiFi search is active, lower drain in standby).
+*   **ETA Updates**: Recalculates estimated arrivals based on simulated speed, route progress, and traffic delays.
+
+### Scenario Schema Configuration (`scenarios/*.json`)
+Scenarios define initial environmental parameters and trigger events to test system behavior:
+```json
+{
+  "scenarioName": "Airport Transfer with Temp Breach",
+  "durationSeconds": 3600,
+  "gpsRoute": "aiims-to-airport",
+  "battery": {
+    "startPercentage": 98.0,
+    "drainRatePerSec": 0.001
+  },
+  "temperature": {
+    "startCelsius": 3.8,
+    "ambientCelsius": 32.0,
+    "thermalConductivity": 0.05
+  },
+  "eventTriggers": [
+    {
+      "triggerAtSeconds": 900,
+      "eventType": "INSULATION_FAILURE",
+      "value": 0.35
+    },
+    {
+      "triggerAtSeconds": 1800,
+      "eventType": "UNAUTHORIZED_LID_OPEN",
+      "value": true
+    }
+  ]
+}
+```
+
+---
+
+## 4. Replay Mode Architecture
+Replay Mode allows developer and audit teams to replay historic transport logs (e.g., replicating a past mission that suffered a cold-chain breach):
+
+```
+[ Historical Mission Log (MongoDB) ] ──> [ Log Replayer ] ──> [ Replay Device Class ]
+                                                                      │
+                                                                      ▼
+                                                            [ Gateway Interface ]
+                                                                      │
+                                                                      ▼
+                                                            [ Realtime Dashboard ]
+```
+
+### Key Replay Features
+*   **Time-Scaled Execution**: Replay data at 1x, 2x, 5x, or 10x speed.
+*   **Audit Analysis**: Allows inspectors to replay a compromised transport run step-by-step to analyze sensor events and locate the exact point of failure.
+
+---
+
+## 5. Hardware Component Specification (Physical Implementation)
 When deployed on physical hardware, the device uses the following components:
-
 *   **Microcontroller**: ESP32-WROOM-32D (Dual-core Tensilica LX6, 240MHz, 520KB SRAM, 4MB Flash). Dual-core operation separates sensor reading tasks from network synchronization processes.
-*   **DS18B20 Temperature Sensor**: A digital thermometer operating over a 1-Wire bus to monitor the ice/preservation solution interface.
+*   **DS18B20 Temperature Sensor**: High-accuracy digital thermometer operating over a 1-Wire bus.
 *   **NEO-6M GPS Module**: Coordinates with satellite networks via hardware UART interface to transmit location coordinates.
 *   **RC522 RFID Reader**: Reads 13.56 MHz tags (such as transport crew badges) over an SPI interface to authenticate lock/unlock actions.
 *   **Reed Switch (Tamper Sensor)**: A magnetic sensor placed on the box lid interface. A break in the magnetic connection triggers an interrupt-driven tamper alarm.
@@ -50,59 +147,15 @@ When deployed on physical hardware, the device uses the following components:
 
 ---
 
-## 4. ESP32 Digital Twin Simulator
-The simulator is written in Node.js and replicates the behavior of the physical transport box. It supports the following operational modes:
-
-### Simulation Folder Structure
-```text
-simulation/
-│
-├── simulator-server.js      # Main execution script to spin up simulated boxes
-│
-├── scenarios/               # Standardized state transitions for testing
-│   ├── normal-transport.json
-│   ├── temperature-breach.json
-│   ├── tamper.json
-│   ├── battery-low.json
-│   ├── gps-route.json
-│   └── network-loss.json
-│
-└── devices/
-    └── transport-box.js     # Class containing simulated sensor state machines
-```
-
-### Simulated Scenario Configurations
-1.  **Normal Transport**: Replicates regular transit. Temperature maintains a stable 4.0°C (±0.2°C), battery charge decreases slowly, and GPS coordinates update along a route with no tamper flags active.
-2.  **Temperature Breach**: Simulates cooling insulation failure. The temperature rises above 6.0°C, triggering local warnings and dispatching warning flags to the gateway.
-3.  **GPS Route Simulation**: Animates coordinate values along coordinates matching a path from Hospital A to Hospital B at consistent time intervals.
-4.  **Tamper Event**: Simulates unauthorized physical access. The tamper switch state transitions from closed to open without prior RFID card authorization, triggering an immediate alarm payload.
-5.  **RFID Verification**: Simulates badge authentication scans. Scanning an unauthorized card ID triggers a validation failure alert, while scanning an authorized card ID unlocks the actuator.
-6.  **Network Loss & Queue Synchronization**: Replicates network drops during transit. The simulator turns off its internet connection, caches telemetry to an internal memory array, and synchronizes the buffered records upon reconnection.
-
----
-
-## 5. Offline Ring Buffer (Eventual Consistency)
+## 6. Offline Ring Buffer & Connectivity Handling
 To protect data during network drops, both the physical device and the simulator implement an offline queue manager:
-
-```
-[ New Telemetry Log ] ──> [ Connection Available? ]
-                                │
-                        ┌───────┴───────┐
-                     Yes│             No│
-                        ▼               ▼
-                 [ POST Gateway ]    [ Cache to Ring Buffer (FIFO) ]
-                        ▲               │
-                        │               ▼
-                        └───────[ Reconnection Event ]
-```
-
 *   **Physical (Flash Memory)**: Stores logs in its onboard SPIFFS flash memory.
 *   **Simulator (Memory Array)**: Caches records in an in-memory queue array.
 *   **Sync Rules**: Telemetry is buffered in a FIFO ring queue (up to 2,000 entries). When connection is restored, logs are uploaded to `/api/v1/iot/telemetry/sync` in chunks of 50 to prevent gateway timeout errors.
 
 ---
 
-## 6. Edge-to-Gateway Handshake & Verification
+## 7. Edge-to-Gateway Handshake & Verification
 
 ```mermaid
 sequenceDiagram
@@ -124,17 +177,6 @@ sequenceDiagram
     BC->>HLF: Commit State Block
     HLF-->>ESP: Lock Authenticated (Green LED Active)
 ```
-
----
-
-## 7. Power Profiles & Sleep Modes
-To maximize battery life during long transit missions, the system implements power-saving states:
-
-| Mode | Active Components | Current Draw (mA) | Expected Battery Life |
-| :--- | :--- | :--- | :--- |
-| **Active Monitoring** | CPU 240MHz, GPS active, WiFi/LTE transmit | 150 - 250 mA | ~12 - 16 hours |
-| **Low-Power Transit** | CPU 80MHz, GPS (periodic 1m), LTE standby | 50 - 70 mA | ~24 - 36 hours |
-| **Deep Sleep (Idle)** | RTC memory only, wake up on RFID / Tamper interrupt | < 1 mA | > 3 months |
 
 ---
 
@@ -175,9 +217,3 @@ Both simulated and physical devices use the same JSON payload structures:
   }
 }
 ```
-
----
-
-## 9. Future Enhancements
-*   **Narrowband IoT (NB-IoT)**: Shifting to NB-IoT networks to provide cellular coverage in remote areas.
-*   **Decentralized OTA Updates**: Implementing encrypted over-the-air (OTA) updates using hashes stored on the blockchain to verify firmware authenticity.
