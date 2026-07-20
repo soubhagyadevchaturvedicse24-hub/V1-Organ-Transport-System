@@ -14,7 +14,7 @@ import * as matchingService from '../matching/services/matching.service.js';
 import * as boxService from '../transport/services/box.service.js';
 import * as missionService from '../transport/services/mission.service.js';
 
-dotenv.config({ path: '../../.env' });
+dotenv.config();
 
 const seedData = async () => {
   try {
