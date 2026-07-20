@@ -47,9 +47,25 @@ We follow a disciplined branch strategy:
 
 All features are reviewed and merged into `develop` using a `--no-ff` strategy.
 
+## Milestones
+
+| Tag | Milestone | Status |
+|-----|-----------|--------|
+| `architecture-v1.0` | Architecture Freeze | ✅ Complete |
+| `sprint-1-complete` | Sprint 1 — Project Bootstrap | ✅ Complete |
+| `v0.2.0-auth` | Sprint 2 — Authentication & RBAC | ✅ Complete |
+| — | Sprint 3 — Hospital Module | 🔄 In Progress |
+| — | Sprint 4 — Donor Module | ⬜ Pending |
+| — | Sprint 5 — Recipient & Organ Module | ⬜ Pending |
+| — | Sprint 6 — Matching Engine | ⬜ Pending |
+| — | Sprint 7 — IoT Simulator | ⬜ Pending |
+| — | Sprint 8 — Dashboard UI | ⬜ Pending |
+| — | Sprint 9 — Blockchain Integration | ⬜ Pending |
+| — | Sprint 10 — Testing & Production Readiness | ⬜ Pending |
+
 ## Sprint Roadmap
 - [x] **Sprint 1:** Project Bootstrap
-- [ ] **Sprint 2:** Authentication
+- [x] **Sprint 2:** Authentication & RBAC (`v0.2.0-auth`)
 - [ ] **Sprint 3:** Hospital Module
 - [ ] **Sprint 4:** Donor Module
 - [ ] **Sprint 5:** Organ Module

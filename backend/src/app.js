@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import healthRoute from './health/health.route.js';
 
 import authRoute from './auth/routes/auth.route.js';
+import hospitalRoute from './hospital/routes/hospital.route.js';
 import cookieParser from 'cookie-parser';
 import { errorHandler } from './middleware/errorHandler.js';
 
@@ -24,6 +25,7 @@ app.get('/', (req, res) => {
 });
 
 app.use('/api/v1/auth', authRoute);
+app.use('/api/v1/hospitals', hospitalRoute);
 app.use('/api/v1', healthRoute);
 
 app.use(errorHandler);

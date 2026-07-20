@@ -1,7 +1,7 @@
 /**
- * Authentication Error Codes
+ * Backend Error Code Catalogue
  * These codes are permanent. Never reuse a code for a different error.
- * Every module that needs to throw an auth error should import from here.
+ * Every module must import from here — no inline error objects allowed.
  */
 export const AUTH_ERRORS = Object.freeze({
   INVALID_CREDENTIALS: {
@@ -43,5 +43,47 @@ export const AUTH_ERRORS = Object.freeze({
     code: 'AUTH_008',
     message: 'Account is not active',
     status: 403,
+  },
+});
+
+/**
+ * Workflow Error Codes
+ */
+export const WORKFLOW_ERRORS = Object.freeze({
+  UNKNOWN_ACTION: {
+    code: 'WORKFLOW_001',
+    message: 'Unknown workflow action',
+    status: 400,
+  },
+  INVALID_TRANSITION: {
+    code: 'WORKFLOW_002',
+    message: 'This action is not allowed in the current state',
+    status: 409,
+  },
+  MISSING_TRANSITION_MAP: {
+    code: 'WORKFLOW_003',
+    message: 'No transition map provided to the workflow engine',
+    status: 500,
+  },
+});
+
+/**
+ * Hospital Domain Error Codes
+ */
+export const HOSPITAL_ERRORS = Object.freeze({
+  NOT_FOUND: {
+    code: 'HOSPITAL_001',
+    message: 'Hospital not found',
+    status: 404,
+  },
+  IMMUTABLE_STATUS: {
+    code: 'HOSPITAL_002',
+    message: 'Hospital can only be updated while in DRAFT status',
+    status: 409,
+  },
+  REJECTION_REASON_REQUIRED: {
+    code: 'HOSPITAL_003',
+    message: 'Rejection reason is required',
+    status: 400,
   },
 });
