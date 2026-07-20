@@ -8,7 +8,8 @@
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "simulate": "node src/simulator/iotSimulator.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
