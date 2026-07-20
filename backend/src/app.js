@@ -7,8 +7,11 @@ import authRoute from './auth/routes/auth.route.js';
 import hospitalRoute from './hospital/routes/hospital.route.js';
 import donorRoute from './donor/routes/donor.route.js';
 import organRoute from './organ/routes/organ.route.js';
-import matchingRoute from './matching/routes/matching.route.js';
-import recipientRoute from './recipient/routes/recipient.route.js';
+import matchingRoutes from './matching/routes/matching.route.js';
+import recipientRoutes from './recipient/routes/recipient.route.js';
+import boxRoutes from './transport/routes/box.route.js';
+import missionRoutes from './transport/routes/mission.route.js';
+import deviceRoutes from './transport/routes/device.route.js';
 import cookieParser from 'cookie-parser';
 import { errorHandler } from './middleware/errorHandler.js';
 
@@ -32,8 +35,11 @@ app.use('/api/v1/auth', authRoute);
 app.use('/api/v1/hospitals', hospitalRoute);
 app.use('/api/v1/donors', donorRoute);
 app.use('/api/v1/organs', organRoute);
-app.use('/api/v1/matching', matchingRoute);
-app.use('/api/v1/recipients', recipientRoute);
+app.use('/api/v1/matching', matchingRoutes);
+app.use('/api/v1/recipients', recipientRoutes);
+app.use('/api/v1/transport/boxes', boxRoutes);
+app.use('/api/v1/transport/missions', missionRoutes);
+app.use('/api/v1/device', deviceRoutes);
 app.use('/api/v1', healthRoute);
 
 app.use(errorHandler);
