@@ -59,7 +59,7 @@ describe('Scoring Engine', () => {
       { 
         id: 1, 
         urgencyLevel: 'EMERGENCY', // 50 * 1 = 50
-        waitlistDate: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString(), // >30 months = 30 max
+        waitlistDate: new Date(Date.now() - 1000 * 24 * 60 * 60 * 1000).toISOString(), // ~33 months = 30 max
         age: 35, // 0
         geoLocation: { coordinates: [77, 28] } // dist 0 = max dist score (10)
         // Total expected = 50 + 30 + 0 + 10 = 90

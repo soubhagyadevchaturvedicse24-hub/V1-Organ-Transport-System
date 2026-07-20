@@ -1,0 +1,29 @@
+meta {
+  name: Create Recipient
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/v1/recipients
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "hospitalId": "HOSPITAL_ID_HERE",
+    "bloodGroup": "O+",
+    "requiredOrganType": "KIDNEY",
+    "age": 45,
+    "urgencyLevel": "URGENT",
+    "geoLocation": {
+      "type": "Point",
+      "coordinates": [77.2090, 28.6139]
+    }
+  }
+}
