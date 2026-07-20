@@ -165,3 +165,35 @@ export const MATCHING_ERRORS = Object.freeze({
     status: 400,
   },
 });
+
+/**
+ * Transport Domain Error Codes
+ */
+export const TRANSPORT_ERRORS = Object.freeze({
+  NOT_FOUND: {
+    code: 'TRN_001',
+    message: 'Transport mission or box not found',
+    status: 404,
+  },
+  BOX_UNAVAILABLE: {
+    code: 'TRN_002',
+    message: 'Transport box is not available for mission',
+    status: 409,
+  },
+});
+
+/**
+ * Device/IoT Error Codes
+ */
+export const DEVICE_ERRORS = Object.freeze({
+  UNAUTHORIZED: {
+    code: 'DEV_001',
+    message: 'Invalid or missing device credentials',
+    status: 401,
+  },
+  INVALID_PAYLOAD: {
+    code: 'DEV_002',
+    message: 'Telemetry payload is malformed',
+    status: 400,
+  },
+});
