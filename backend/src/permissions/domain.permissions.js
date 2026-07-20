@@ -1,7 +1,3 @@
-/**
- * Audit resource permissions.
- */
-export const AUDIT_PERMISSIONS = Object.freeze({
+export const AUDIT_PERMISSIONS = {
   VIEW: 'audit:view',
-});
-
+};

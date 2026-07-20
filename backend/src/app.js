@@ -12,6 +12,7 @@ import recipientRoutes from './recipient/routes/recipient.route.js';
 import boxRoutes from './transport/routes/box.route.js';
 import missionRoutes from './transport/routes/mission.route.js';
 import deviceRoutes from './transport/routes/device.route.js';
+import auditRoutes from './blockchain/routes/audit.route.js';
 import cookieParser from 'cookie-parser';
 import { errorHandler } from './middleware/errorHandler.js';
 
@@ -40,6 +41,7 @@ app.use('/api/v1/recipients', recipientRoutes);
 app.use('/api/v1/transport/boxes', boxRoutes);
 app.use('/api/v1/transport/missions', missionRoutes);
 app.use('/api/v1/device', deviceRoutes);
+app.use('/api/v1/audit', auditRoutes);
 app.use('/api/v1', healthRoute);
 
 app.use(errorHandler);
