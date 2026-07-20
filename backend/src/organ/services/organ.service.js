@@ -6,6 +6,8 @@ import { ORGAN_ERRORS, DONOR_ERRORS, HOSPITAL_ERRORS } from '../../constants/err
 import { canCreateOrganFromDonor } from '../../domain/validators/donorRules.js';
 import { generateOrganCode } from '../utils/organCode.js';
 import { ORGAN_DEFAULTS } from '../utils/organDefaults.js';
+import { eventBus } from '../../domain/events/index.js';
+import { ORGAN_EVENTS } from '../../domain/events/organ.events.js';
 import logger from '../../logger/index.js';
 
 export const registerOrgan = async (data, userId) => {
@@ -174,6 +176,11 @@ const applyTransition = async (id, action, actorId, extra = {}) => {
 
   const eventName = actionToEvent[action];
   logger.info(`${eventName}: ${organ.organId} | Actor[${actorId}]`);
+
+  // Emit Domain Event if it reaches AWAITING_ALLOCATION
+  if (action === 'approveViability' && newStatus === 'AWAITING_ALLOCATION') {
+    eventBus.emit(ORGAN_EVENTS.ORGAN_AVAILABLE, { organId: organ._id });
+  }
 
   return organ;
 };
