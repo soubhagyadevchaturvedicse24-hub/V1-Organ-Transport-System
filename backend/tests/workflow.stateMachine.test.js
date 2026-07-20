@@ -13,6 +13,7 @@ import { createStateMachine, WORKFLOW_ERRORS } from '../src/workflow/index.js';
 import { hospitalMachine, HOSPITAL_TRANSITIONS } from '../src/workflow/transitions/hospital.transitions.js';
 import { donorMachine, DONOR_TRANSITIONS } from '../src/workflow/transitions/donor.transitions.js';
 import { organMachine, ORGAN_TRANSITIONS } from '../src/workflow/transitions/organ.transitions.js';
+import { matchingMachine, MATCHING_TRANSITIONS } from '../src/workflow/transitions/matching.transitions.js';
 
 // ─── Controlled test transition map ──────────────────────────────────────────
 const TEST_TRANSITIONS = Object.freeze({
@@ -98,6 +99,26 @@ describe('transition()', () => {
 
     it('should block invalid transitions', () => {
       expect(() => organMachine.transition('RECOVERED', 'approveViability')).toThrow(
+        expect.objectContaining({ code: WORKFLOW_ERRORS.INVALID_TRANSITION.code })
+      );
+    });
+  });
+
+  describe('Matching State Machine', () => {
+    it('should be frozen', () => {
+      expect(Object.isFrozen(MATCHING_TRANSITIONS)).toBe(true);
+    });
+
+    it('should allow valid transitions', () => {
+      expect(matchingMachine.transition('MATCHING_STARTED', 'checkCompatibility')).toBe('COMPATIBILITY_CHECK');
+      expect(matchingMachine.transition('COMPATIBILITY_CHECK', 'score')).toBe('SCORING');
+      expect(matchingMachine.transition('SCORING', 'rank')).toBe('RANKED');
+      expect(matchingMachine.transition('RANKED', 'recommend')).toBe('RECOMMENDED');
+      expect(matchingMachine.transition('RECOMMENDED', 'accept')).toBe('ACCEPTED');
+    });
+
+    it('should block invalid transitions', () => {
+      expect(() => matchingMachine.transition('COMPATIBILITY_CHECK', 'accept')).toThrow(
         expect.objectContaining({ code: WORKFLOW_ERRORS.INVALID_TRANSITION.code })
       );
     });

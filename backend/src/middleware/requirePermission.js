@@ -1,6 +1,7 @@
 import { AUTH_ERRORS } from '../constants/errorCodes.js';
 import { HOSPITAL_PERMISSIONS } from '../permissions/hospital.permissions.js';
 import { ORGAN_PERMISSIONS } from '../permissions/organ.permissions.js';
+import { MATCHING_PERMISSIONS } from '../permissions/matching.permissions.js';
 import { TRANSPORT_PERMISSIONS } from '../permissions/transport.permissions.js';
 import { AUDIT_PERMISSIONS } from '../permissions/domain.permissions.js';
 import { DONOR_PERMISSIONS } from '../permissions/donor.permissions.js';
@@ -23,6 +24,7 @@ const ROLE_PERMISSIONS = Object.freeze({
     DONOR_PERMISSIONS.VIEW,
     ORGAN_PERMISSIONS.VIEW,
     TRANSPORT_PERMISSIONS.VIEW_MISSION,
+    MATCHING_PERMISSIONS.VIEW,
     AUDIT_PERMISSIONS.VIEW,
   ],
   NOTTO_OFFICER: [
@@ -40,6 +42,10 @@ const ROLE_PERMISSIONS = Object.freeze({
     ORGAN_PERMISSIONS.DISCARD,
     ORGAN_PERMISSIONS.VIEW_AUDIT,
     TRANSPORT_PERMISSIONS.VIEW_MISSION,
+    MATCHING_PERMISSIONS.VIEW,
+    MATCHING_PERMISSIONS.TRIGGER,
+    MATCHING_PERMISSIONS.ACCEPT,
+    MATCHING_PERMISSIONS.DECLINE,
     AUDIT_PERMISSIONS.VIEW,
   ],
   ROTTO_SOTTO_OFFICER: [
@@ -78,7 +84,9 @@ const ROLE_PERMISSIONS = Object.freeze({
     ORGAN_PERMISSIONS.UPDATE,
     ORGAN_PERMISSIONS.ASSESS,
     ORGAN_PERMISSIONS.DISCARD,
-    ORGAN_PERMISSIONS.MATCH, // (Keeping for backward compatibility or Sprint 6)
+    MATCHING_PERMISSIONS.VIEW,
+    MATCHING_PERMISSIONS.ACCEPT,
+    MATCHING_PERMISSIONS.DECLINE,
     TRANSPORT_PERMISSIONS.VIEW_MISSION,
   ],
   TRANSPORT_COORDINATOR: [

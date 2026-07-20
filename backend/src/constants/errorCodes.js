@@ -144,3 +144,24 @@ export const ORGAN_ERRORS = Object.freeze({
     status: 400,
   },
 });
+
+/**
+ * Matching Domain Error Codes
+ */
+export const MATCHING_ERRORS = Object.freeze({
+  NOT_FOUND: {
+    code: 'MATCH_001',
+    message: 'Match record not found',
+    status: 404,
+  },
+  INVALID_ORGAN_STATE: {
+    code: 'MATCH_002',
+    message: 'Organ is not in a valid state to start matching (must be AWAITING_ALLOCATION)',
+    status: 409,
+  },
+  RECIPIENT_NOT_FOUND_IN_MATCH: {
+    code: 'MATCH_003',
+    message: 'Recipient is not part of this match recommendation',
+    status: 400,
+  },
+});
