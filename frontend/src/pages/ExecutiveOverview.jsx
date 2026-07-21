@@ -5,6 +5,7 @@ import {
   Activity, Clock, TrendingUp, AlertTriangle, CheckCircle2, Info
 } from 'lucide-react';
 import { getDashboardKPIs } from '../services/api';
+import { useSocket } from '../context/SocketContext';
 import styles from './ExecutiveOverview.module.css';
 
 /* ── Animated counter ── */
@@ -64,25 +65,62 @@ const severityConfig = {
 const ExecutiveOverview = () => {
   const [kpis, setKpis]     = useState({ hospitalsCount:0, donorsCount:0, organsCount:0, missionsCount:0, blocksCount:0 });
   const [loading, setLoading] = useState(true);
-  const [alerts, setAlerts]  = useState([
-    { id:1, type:'TELEMETRY_ALERT',       message:'Temperature spike: 9.2°C on BOX-2026-001',      time:'just now',     severity:'critical' },
-    { id:2, type:'MATCH_ACCEPTED',        message:'Kidney allocation MAT-001 approved by NOTTO',   time:'4 mins ago',   severity:'success'  },
-    { id:3, type:'HEALTH_STATUS_CHANGED', message:'Mission TRN-2026-001 health changed to WARNING', time:'18 mins ago',  severity:'warning'  },
-    { id:4, type:'ORGAN_REGISTERED',      message:'KIDNEY ORG-KID-001 registered at AIIMS',        time:'32 mins ago',  severity:'info'     },
-  ]);
-
-  const timeline = [
-    { title:'Transport Dispatched', desc:'TRN-2026-001 departed AIIMS New Delhi', time:'01:07 AM', color:'var(--brand-green)' },
-    { title:'Match Accepted',       desc:'Dr. Admin approved allocation for REC-2026-001', time:'12:52 AM', color:'var(--brand-blue)'  },
-    { title:'Organ Assessed',       desc:'KIDNEY ORG-KID-001 cleared medically viable',  time:'12:30 AM', color:'var(--brand-purple)'},
-    { title:'Donor Registered',     desc:'DON-2026-001 consent verified at AIIMS',        time:'12:05 AM', color:'var(--brand-amber)' },
-  ];
+  const [alerts, setAlerts]  = useState([]);
+  const [timeline, setTimeline] = useState([]);
+  const socket = useSocket();
 
   useEffect(() => {
     getDashboardKPIs()
       .then(d => setKpis(d))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    socket.on('transport:alert', (payload) => {
+      setAlerts(prev => [{
+        id: Date.now(),
+        type: 'TELEMETRY_ALERT',
+        message: payload.alerts.join(', '),
+        time: 'just now',
+        severity: 'critical'
+      }, ...prev].slice(0, 10));
+    });
+
+    socket.on('transport:health_change', (payload) => {
+      setAlerts(prev => [{
+        id: Date.now(),
+        type: 'HEALTH_STATUS_CHANGED',
+        message: `Mission health changed to ${payload.health.status}`,
+        time: 'just now',
+        severity: payload.health.status === 'CRITICAL' ? 'critical' : 'warning'
+      }, ...prev].slice(0, 10));
+    });
+
+    socket.on('match:update', (payload) => {
+      setAlerts(prev => [{
+        id: Date.now(),
+        type: 'MATCH_EVENT',
+        message: `Match generated for Organ ${payload.organId}`,
+        time: 'just now',
+        severity: 'success'
+      }, ...prev].slice(0, 10));
+      
+      setTimeline(prev => [{
+        title: 'Match Generated',
+        desc: `Match generated for Organ ${payload.organId}`,
+        time: 'just now',
+        color: 'var(--brand-blue)'
+      }, ...prev].slice(0, 5));
+    });
+
+    return () => {
+      socket.off('transport:alert');
+      socket.off('transport:health_change');
+      socket.off('match:update');
+    };
+  }, [socket]);
 
   const statCards = [
     { title:'Hospitals',         value: kpis.hospitalsCount, icon: Building2,    color:'#60a5fa', trend:'+1 this month' },

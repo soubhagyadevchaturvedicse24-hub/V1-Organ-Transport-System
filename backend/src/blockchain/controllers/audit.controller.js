@@ -1,4 +1,6 @@
 import { getBlockchainAdapter } from '../subscribers/audit.subscriber.js';
+import crypto from 'crypto';
+import LedgerBlock from '../../models/LedgerBlock.js';
 
 export const getEntityHistory = async (req, res, next) => {
   try {
@@ -23,6 +25,33 @@ export const verifyLedger = async (req, res, next) => {
     const verificationResult = await adapter.verify();
     
     res.status(200).json(verificationResult);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const verifyBlock = async (req, res, next) => {
+  try {
+    const { blockIndex } = req.params;
+    const block = await LedgerBlock.findOne({ blockIndex: parseInt(blockIndex, 10) });
+    if (!block) {
+      return res.status(404).json({ success: false, message: `Block #${blockIndex} not found` });
+    }
+
+    const payloadString = JSON.stringify(block.payload);
+    const expectedPayloadSHA256 = crypto.createHash('sha256').update(payloadString).digest('hex');
+
+    res.status(200).json({
+      blockNumber: block.blockIndex,
+      channelName: 'organchannel',
+      transactionId: block.hash,
+      smartContractMethod: block.eventType,
+      proofs: {
+        arweaveTxId: `mock-arweave-${block.hash}`,
+        expectedPayloadSHA256,
+        timestamp: block.timestamp,
+      }
+    });
   } catch (error) {
     next(error);
   }

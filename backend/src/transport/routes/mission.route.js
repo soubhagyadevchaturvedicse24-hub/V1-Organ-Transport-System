@@ -15,6 +15,12 @@ router.post(
 );
 
 router.get(
+  '/',
+  requirePermission(TRANSPORT_PERMISSIONS.VIEW_MISSION),
+  missionController.listMissions
+);
+
+router.get(
   '/:missionId',
   requirePermission(TRANSPORT_PERMISSIONS.VIEW_MISSION),
   missionController.getMission

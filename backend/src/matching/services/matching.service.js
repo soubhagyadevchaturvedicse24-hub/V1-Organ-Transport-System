@@ -141,6 +141,19 @@ export const declineRecommendation = async (matchId, recipientId, actorId) => {
   return match;
 };
 
+export const listMatches = async () => {
+  return await Match.find({})
+    .populate({
+      path: 'organId',
+      populate: { path: 'donorId', populate: { path: 'hospitalId' } }
+    })
+    .populate({
+      path: 'recommendedRecipients.recipientId',
+      populate: { path: 'hospitalId' }
+    })
+    .sort({ createdAt: -1 });
+};
+
 // Event Listeners (This would normally be in a separate file like matching.listeners.js but we can map it here or in app bootstrap)
 eventBus.on('organ.available', async (payload) => {
   try {

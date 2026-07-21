@@ -1,17 +1,28 @@
-import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, GitFork, Map, ShieldCheck, HeartPulse, Cpu } from 'lucide-react';
+import { NavLink, useNavigate } from 'react-router-dom';
+import { LayoutDashboard, GitFork, Map, ShieldCheck, HeartPulse, Cpu, LogOut } from 'lucide-react';
 import styles from './Sidebar.module.css';
+import { useAuth } from '../context/AuthContext';
 
-const navLinks = [
-  { name: 'Command Center', path: '/overview', icon: LayoutDashboard, section: 'Operations' },
-  { name: 'Matching Queue',  path: '/matching', icon: GitFork,         section: null },
-  { name: 'Live Transport',  path: '/transport', icon: Map,            section: null },
-  { name: 'Blockchain Audit',path: '/audit',     icon: ShieldCheck,    section: 'Audit' },
-  { name: 'IoT Simulator',   path: '/simulator', icon: Cpu,            section: 'Tools', isSimulator: true },
+const ALL_LINKS = [
+  { name: 'Command Center', path: '/dashboard/overview', icon: LayoutDashboard, section: 'Operations', roles: ['PLATFORM_ADMIN', 'HOSPITAL_COORDINATOR'] },
+  { name: 'Matching Queue',  path: '/dashboard/matching', icon: GitFork,         section: null, roles: ['HOSPITAL_COORDINATOR'] },
+  { name: 'Live Transport',  path: '/dashboard/transport', icon: Map,            section: null, roles: ['COURIER', 'PLATFORM_ADMIN', 'HOSPITAL_COORDINATOR'] },
+  { name: 'Blockchain Audit',path: '/dashboard/audit',     icon: ShieldCheck,    section: 'Audit', roles: ['PLATFORM_ADMIN'] },
+  { name: 'IoT Simulator',   path: '/dashboard/simulator', icon: Cpu,            section: 'Tools', isSimulator: true, roles: ['PLATFORM_ADMIN'] },
 ];
 
 const Sidebar = () => {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
   let lastSection = null;
+
+  const handleLogout = () => {
+    logout();
+    navigate('/');
+  };
+
+  // Filter links by user role
+  const navLinks = ALL_LINKS.filter(link => link.roles.includes(user?.role));
 
   return (
     <aside className={styles.sidebar}>
@@ -54,6 +65,36 @@ const Sidebar = () => {
 
       {/* Footer */}
       <div className={styles.footer}>
+        {user && (
+          <div className={styles.userProfile} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div className={styles.userInfo}>
+              <span className={styles.userName}>{user.displayName}</span>
+              <span className={styles.userRole}>{user.role?.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')}</span>
+            </div>
+            <button 
+              className={styles.logoutBtn} 
+              onClick={handleLogout} 
+              title="Logout"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                width: '100%',
+                padding: '6px',
+                background: 'rgba(239, 68, 68, 0.1)',
+                color: '#ef4444',
+                border: '1px solid rgba(239, 68, 68, 0.2)',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '0.75rem',
+                fontWeight: '600'
+              }}
+            >
+              <LogOut size={14} /> LOGOUT
+            </button>
+          </div>
+        )}
         <div className={styles.systemStatus}>
           <span className="live-dot" />
           <span>All Systems Nominal</span>

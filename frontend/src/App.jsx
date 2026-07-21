@@ -1,4 +1,9 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import { SocketProvider } from './context/SocketContext';
+import { SimulatorProvider } from './context/SimulatorContext';
+import Home from './pages/Home';
+import Login from './pages/Login';
 import DashboardLayout from './layouts/DashboardLayout';
 import ExecutiveOverview from './pages/ExecutiveOverview';
 import MatchingQueue from './pages/MatchingQueue';
@@ -9,18 +14,29 @@ import './App.css';
 
 function App() {
   return (
-    <Router>
-      <Routes>
-        <Route path="/" element={<DashboardLayout />}>
-          <Route index element={<Navigate to="/overview" replace />} />
-          <Route path="overview"   element={<ExecutiveOverview />} />
-          <Route path="matching"   element={<MatchingQueue />}     />
-          <Route path="transport"  element={<TransportMap />}      />
-          <Route path="audit"      element={<BlockchainAudit />}   />
-          <Route path="simulator"  element={<SimulatorPage />}     />
-        </Route>
-      </Routes>
-    </Router>
+    <AuthProvider>
+      <SocketProvider>
+        <SimulatorProvider>
+          <Router>
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/login" element={<Login />} />
+              
+              <Route path="/dashboard" element={<DashboardLayout />}>
+                <Route index element={<Navigate to="overview" replace />} />
+                <Route path="overview"   element={<ExecutiveOverview />} />
+                <Route path="matching"   element={<MatchingQueue />}     />
+                <Route path="transport"  element={<TransportMap />}      />
+                <Route path="audit"      element={<BlockchainAudit />}   />
+                <Route path="simulator"  element={<SimulatorPage />}     />
+              </Route>
+              
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Router>
+        </SimulatorProvider>
+      </SocketProvider>
+    </AuthProvider>
   );
 }
 

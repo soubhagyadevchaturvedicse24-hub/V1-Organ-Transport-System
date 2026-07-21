@@ -6,6 +6,8 @@ import {
   Activity, Thermometer, Battery, Navigation,
   AlertTriangle, CheckCircle2, MapPin, Clock, RefreshCw
 } from 'lucide-react';
+import { getLiveMission } from '../services/api';
+import { useSocket } from '../context/SocketContext';
 import styles from './TransportMap.module.css';
 
 // Fix Leaflet icon
@@ -15,9 +17,6 @@ L.Icon.Default.mergeOptions({
   iconUrl:       'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
   shadowUrl:     'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 });
-
-const ORIGIN      = { name: 'AIIMS New Delhi',        lat: 28.5659, lng: 77.2090 };
-const DESTINATION = { name: 'Tata Memorial, Mumbai',  lat: 19.0069, lng: 72.8427 };
 
 /* SVG-based custom icon for moving box */
 const makeBoxIcon = (status) => {
@@ -49,91 +48,130 @@ const MapPanner = ({ pos }) => {
   return null;
 };
 
-/* Compute ETA string based on remaining distance */
-const calcETA = (lat, lng) => {
-  const dLat = DESTINATION.lat - lat;
-  const dLng = DESTINATION.lng - lng;
-  const dist  = Math.sqrt(dLat**2 + dLng**2) * 111; // km approx
-  const hrs   = Math.round(dist / 800);              // ~800 km/h analogy
-  return `~${hrs}h ETA`;
-};
-
 const TransportMap = () => {
-  const [mission, setMission] = useState({
-    id:     'TRN-2026-001',
-    boxId:  'BOX-2026-001',
-    health: { status: 'NORMAL' },
-    telemetry: {
-      temperature: 4.0,
-      batteryLevel: 100,
-      isTampered: false,
-    },
-    currentLocation: { lat: 28.5659, lng: 77.2090 },
-    trail: [],
-  });
-  const [loading, setLoading] = useState(false);
+  const [mission, setMission] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState(null);
-  const tickRef = useRef(null);
+  const socket = useSocket();
 
-  /* Simulate progressive movement toward destination */
   useEffect(() => {
-    let lat = 28.5659, lng = 77.2090;
-    let battery = 100;
-    let temp    = 4.0;
-    const trail = [[lat, lng]];
+    // Fetch initial state
+    getLiveMission()
+      .then(data => {
+        if (data) {
+          // Determine initial location from chain of custody or origin
+          let initialLoc = { lat: 0, lng: 0 };
+          const trail = [];
+          if (data.originHospital && data.originHospital.geoLocation) {
+            initialLoc = {
+              lat: data.originHospital.geoLocation.coordinates[1],
+              lng: data.originHospital.geoLocation.coordinates[0]
+            };
+            trail.push([initialLoc.lat, initialLoc.lng]);
+          }
 
-    const step = () => {
-      const dLat = DESTINATION.lat - lat;
-      const dLng = DESTINATION.lng - lng;
-      const dist  = Math.sqrt(dLat**2 + dLng**2);
+          if (data.chainOfCustody && data.chainOfCustody.length > 0) {
+            // Find last point
+            const lastPoint = [...data.chainOfCustody].reverse().find(e => e.location && e.location.coordinates);
+            if (lastPoint) {
+              initialLoc = {
+                lat: lastPoint.location.coordinates[1],
+                lng: lastPoint.location.coordinates[0]
+              };
+            }
+            // Populate trail
+            data.chainOfCustody.forEach(evt => {
+              if (evt.location && evt.location.coordinates) {
+                trail.push([evt.location.coordinates[1], evt.location.coordinates[0]]);
+              }
+            });
+          }
 
-      if (dist > 0.05) {
-        lat += (dLat / dist) * 0.06;
-        lng += (dLng / dist) * 0.06;
-      }
-
-      // Random anomalies
-      const spiked   = Math.random() < 0.05;
-      const tampered = Math.random() < 0.01;
-      temp     = spiked ? 8.5 + Math.random() * 2 : Math.max(3.5, temp + (Math.random() * 0.3 - 0.15));
-      battery  = Math.max(0, battery - 0.25);
-
-      const health =
-        tampered || temp > 8.0 ? 'CRITICAL' :
-        temp > 6.0 || battery < 30 ? 'WARNING' : 'NORMAL';
-
-      trail.push([lat, lng]);
-      if (trail.length > 80) trail.shift();
-
-      setMission({
-        id:     'TRN-2026-001',
-        boxId:  'BOX-2026-001',
-        health: { status: health },
-        telemetry: {
-          temperature:  parseFloat(temp.toFixed(2)),
-          batteryLevel: parseFloat(battery.toFixed(1)),
-          isTampered:   tampered,
-        },
-        currentLocation: { lat, lng },
-        trail:           [...trail],
-        eta:             calcETA(lat, lng),
-      });
-      setLastUpdate(new Date());
-    };
-
-    step();
-    tickRef.current = setInterval(step, 3500);
-    return () => clearInterval(tickRef.current);
+          setMission({
+            ...data,
+            currentLocation: initialLoc,
+            telemetry: { temperature: 4.0, batteryLevel: 100, isTampered: false }, // Default, waiting for telemetry
+            trail
+          });
+          setLastUpdate(new Date());
+        }
+      })
+      .catch(err => console.error(err))
+      .finally(() => setLoading(false));
   }, []);
 
-  const { health, telemetry, currentLocation, trail, eta } = mission;
+  useEffect(() => {
+    if (!socket || !mission) return;
+
+    socket.emit('join_mission', mission._id);
+
+    socket.on('transport:telemetry', (payload) => {
+      if (payload.missionId === mission._id) {
+        setMission(prev => {
+          const lat = payload.location.coordinates[1];
+          const lng = payload.location.coordinates[0];
+          const trail = [...prev.trail, [lat, lng]];
+          // Keep trail max length
+          if (trail.length > 200) trail.shift();
+          
+          return {
+            ...prev,
+            currentLocation: { lat, lng },
+            telemetry: {
+              temperature: payload.temperature,
+              batteryLevel: payload.batteryLevel,
+              isTampered: payload.isTampered
+            },
+            trail
+          };
+        });
+        setLastUpdate(new Date());
+      }
+    });
+
+    socket.on('transport:health_change', (payload) => {
+      if (payload.missionId === mission._id) {
+        setMission(prev => ({
+          ...prev,
+          health: payload.health
+        }));
+      }
+    });
+
+    return () => {
+      socket.off('transport:telemetry');
+      socket.off('transport:health_change');
+      socket.emit('leave_mission', mission._id);
+    };
+  }, [socket, mission?._id]);
+
+  if (loading) {
+    return <div className={styles.page} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Loading live tracking data...</div>;
+  }
+
+  if (!mission) {
+    return <div className={styles.page} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>No active transport missions found.</div>;
+  }
+
+  const { health, telemetry, currentLocation, trail } = mission;
   const healthColor =
     health.status === 'CRITICAL' ? 'var(--status-critical)' :
     health.status === 'WARNING'  ? 'var(--status-warning)'  : 'var(--status-online)';
 
+  const origin = mission.originHospital ? {
+    name: mission.originHospital.name,
+    lat: mission.originHospital.geoLocation.coordinates[1],
+    lng: mission.originHospital.geoLocation.coordinates[0]
+  } : { name: 'Unknown', lat: 0, lng: 0 };
+
+  const dest = mission.destinationHospital ? {
+    name: mission.destinationHospital.name,
+    lat: mission.destinationHospital.geoLocation.coordinates[1],
+    lng: mission.destinationHospital.geoLocation.coordinates[0]
+  } : { name: 'Unknown', lat: 0, lng: 0 };
+
   return (
     <div className={styles.page}>
-      {/* Header */}
       <motion.div className={styles.header} initial={{ opacity:0, y:-12 }} animate={{ opacity:1, y:0 }}>
         <div>
           <h1 className={`gradient-text ${styles.title}`}>Live Transport Map</h1>
@@ -154,90 +192,41 @@ const TransportMap = () => {
       </motion.div>
 
       <div className={styles.layout}>
-        {/* MAP */}
         <div className={styles.mapWrap}>
-          <MapContainer
-            center={[23.5, 75.5]}
-            zoom={5}
-            className={styles.map}
-            zoomControl={true}
-          >
-            <TileLayer
-              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-              attribution='&copy; OSM &copy; CARTO'
-              maxZoom={19}
-            />
-
+          <MapContainer center={[currentLocation.lat, currentLocation.lng]} zoom={5} className={styles.map} zoomControl={true}>
+            <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" attribution='&copy; OSM &copy; CARTO' maxZoom={19} />
             <MapPanner pos={[currentLocation.lat, currentLocation.lng]} />
-
-            {/* Route line */}
-            <Polyline
-              positions={[[ORIGIN.lat, ORIGIN.lng], [DESTINATION.lat, DESTINATION.lng]]}
-              color="rgba(255,255,255,0.12)"
-              weight={2}
-              dashArray="6,10"
-            />
-
-            {/* Completed path */}
-            {trail.length > 1 && (
-              <Polyline
-                positions={trail}
-                color="var(--brand-green)"
-                weight={3}
-                opacity={0.85}
-              />
-            )}
-
-            {/* Origin */}
-            <Marker position={[ORIGIN.lat, ORIGIN.lng]} icon={HospitalIcon('#60a5fa')}>
-              <Popup>
-                <strong>Origin</strong><br />{ORIGIN.name}
-              </Popup>
+            <Polyline positions={[[origin.lat, origin.lng], [dest.lat, dest.lng]]} color="rgba(255,255,255,0.12)" weight={2} dashArray="6,10" />
+            
+            {trail.length > 1 && <Polyline positions={trail} color="var(--brand-green)" weight={3} opacity={0.85} />}
+            
+            <Marker position={[origin.lat, origin.lng]} icon={HospitalIcon('#60a5fa')}>
+              <Popup><strong>Origin</strong><br />{origin.name}</Popup>
             </Marker>
-
-            {/* Destination */}
-            <Marker position={[DESTINATION.lat, DESTINATION.lng]} icon={HospitalIcon('#a78bfa')}>
-              <Popup>
-                <strong>Destination</strong><br />{DESTINATION.name}
-              </Popup>
+            <Marker position={[dest.lat, dest.lng]} icon={HospitalIcon('#a78bfa')}>
+              <Popup><strong>Destination</strong><br />{dest.name}</Popup>
             </Marker>
-
-            {/* Moving box */}
-            <Marker
-              position={[currentLocation.lat, currentLocation.lng]}
-              icon={makeBoxIcon(health.status)}
-            >
+            
+            <Marker position={[currentLocation.lat, currentLocation.lng]} icon={makeBoxIcon(health.status)}>
               <Popup>
-                <strong>{mission.boxId}</strong><br />
+                <strong>{mission.boxId?.deviceId || mission.missionId}</strong><br />
                 Temp: {telemetry.temperature}°C<br />
                 Battery: {telemetry.batteryLevel}%<br />
-                {eta}
               </Popup>
             </Marker>
-
-            {/* Alert radius when critical */}
+            
             {health.status !== 'NORMAL' && (
-              <Circle
-                center={[currentLocation.lat, currentLocation.lng]}
-                radius={60000}
-                color={healthColor}
-                fillOpacity={0.04}
-                weight={1}
-              />
+              <Circle center={[currentLocation.lat, currentLocation.lng]} radius={60000} color={healthColor} fillOpacity={0.04} weight={1} />
             )}
           </MapContainer>
         </div>
 
-        {/* SIDE PANEL */}
         <div className={styles.sidePanel}>
-          {/* Health Card */}
           <motion.div className={`glass-panel ${styles.card}`} layout>
             <div className={styles.cardHead}>
               <Activity size={16} style={{ color: healthColor }} />
               <h3>Health Monitor</h3>
-              <span style={{ marginLeft:'auto' }}>
-                <span className="live-dot" />
-              </span>
+              <span style={{ marginLeft:'auto' }}><span className="live-dot" /></span>
             </div>
 
             <div className={styles.healthBadge} style={{ background:`color-mix(in srgb,${healthColor} 12%,transparent)`, borderColor:`color-mix(in srgb,${healthColor} 40%,transparent)`, color: healthColor }}>
@@ -247,26 +236,17 @@ const TransportMap = () => {
             </div>
 
             <div className={styles.metrics}>
-              {/* Temperature */}
               <div className={styles.metric}>
                 <div className={styles.metricLeft}>
                   <Thermometer size={16} style={{ color: telemetry.temperature > 8 ? 'var(--status-critical)' : telemetry.temperature > 6 ? 'var(--status-warning)' : 'var(--brand-blue)' }} />
                   <span className={styles.metricLabel}>Temperature</span>
                 </div>
-                <span className={styles.metricVal} style={{ color: telemetry.temperature > 8 ? 'var(--status-critical)' : 'var(--text-primary)' }}>
-                  {telemetry.temperature}°C
-                </span>
+                <span className={styles.metricVal} style={{ color: telemetry.temperature > 8 ? 'var(--status-critical)' : 'var(--text-primary)' }}>{telemetry.temperature}°C</span>
               </div>
               <div className={styles.metricBar}>
-                <motion.div
-                  className={styles.metricBarFill}
-                  style={{ background: telemetry.temperature > 8 ? 'var(--status-critical)' : 'var(--brand-blue)' }}
-                  animate={{ width: `${Math.min((telemetry.temperature / 12) * 100, 100)}%` }}
-                  transition={{ type: 'spring', stiffness: 80 }}
-                />
+                <motion.div className={styles.metricBarFill} style={{ background: telemetry.temperature > 8 ? 'var(--status-critical)' : 'var(--brand-blue)' }} animate={{ width: `${Math.min((telemetry.temperature / 12) * 100, 100)}%` }} transition={{ type: 'spring', stiffness: 80 }} />
               </div>
 
-              {/* Battery */}
               <div className={styles.metric}>
                 <div className={styles.metricLeft}>
                   <Battery size={16} style={{ color: telemetry.batteryLevel < 20 ? 'var(--status-critical)' : 'var(--brand-green)' }} />
@@ -275,21 +255,12 @@ const TransportMap = () => {
                 <span className={styles.metricVal}>{telemetry.batteryLevel}%</span>
               </div>
               <div className={styles.metricBar}>
-                <motion.div
-                  className={styles.metricBarFill}
-                  style={{ background: telemetry.batteryLevel < 20 ? 'var(--status-critical)' : 'var(--brand-green)' }}
-                  animate={{ width: `${telemetry.batteryLevel}%` }}
-                  transition={{ type: 'spring', stiffness: 80 }}
-                />
+                <motion.div className={styles.metricBarFill} style={{ background: telemetry.batteryLevel < 20 ? 'var(--status-critical)' : 'var(--brand-green)' }} animate={{ width: `${telemetry.batteryLevel}%` }} transition={{ type: 'spring', stiffness: 80 }} />
               </div>
 
-              {/* Tamper */}
               <AnimatePresence>
                 {telemetry.isTampered && (
-                  <motion.div
-                    className={styles.tamperAlert}
-                    initial={{ opacity:0, scale:0.9 }} animate={{ opacity:1, scale:1 }} exit={{ opacity:0 }}
-                  >
+                  <motion.div className={styles.tamperAlert} initial={{ opacity:0, scale:0.9 }} animate={{ opacity:1, scale:1 }} exit={{ opacity:0 }}>
                     <AlertTriangle size={14} /> TAMPER DETECTED
                   </motion.div>
                 )}
@@ -297,39 +268,28 @@ const TransportMap = () => {
             </div>
           </motion.div>
 
-          {/* Mission Info */}
           <div className={`glass-panel ${styles.card}`}>
             <div className={styles.cardHead}>
               <MapPin size={16} style={{ color:'var(--brand-purple)' }} />
               <h3>Mission Details</h3>
             </div>
-
             <div className={styles.missionInfo}>
-              <div className={styles.infoRow}><span>Mission ID</span><span className="mono">{mission.id}</span></div>
-              <div className={styles.infoRow}><span>Transport Box</span><span className="mono">{mission.boxId}</span></div>
-              <div className={styles.infoRow}><span>ETA</span><span style={{ color:'var(--brand-amber)' }}>{eta}</span></div>
+              <div className={styles.infoRow}><span>Mission ID</span><span className="mono">{mission.missionId}</span></div>
+              <div className={styles.infoRow}><span>Status</span><span className="mono" style={{ color:'var(--brand-green)' }}>{mission.status}</span></div>
             </div>
-
             <div className={styles.route}>
               <div className={styles.routePoint}>
                 <div className={styles.routeDot} style={{ background:'#60a5fa' }} />
-                <div>
-                  <div className={styles.routeLabel}>Origin</div>
-                  <div className={styles.routeName}>{ORIGIN.name}</div>
-                </div>
+                <div><div className={styles.routeLabel}>Origin</div><div className={styles.routeName}>{origin.name}</div></div>
               </div>
               <div className={styles.routeConnector} />
               <div className={styles.routePoint}>
                 <div className={styles.routeDot} style={{ background:'#a78bfa' }} />
-                <div>
-                  <div className={styles.routeLabel}>Destination</div>
-                  <div className={styles.routeName}>{DESTINATION.name}</div>
-                </div>
+                <div><div className={styles.routeLabel}>Destination</div><div className={styles.routeName}>{dest.name}</div></div>
               </div>
             </div>
           </div>
 
-          {/* GPS */}
           <div className={`glass-panel ${styles.card}`}>
             <div className={styles.cardHead}>
               <Navigation size={16} style={{ color:'var(--brand-green)' }} />
@@ -338,9 +298,7 @@ const TransportMap = () => {
             <div className={`mono ${styles.gpsDisplay}`}>
               <div><span style={{ color:'var(--text-tertiary)' }}>LAT</span>  {currentLocation.lat.toFixed(5)}°N</div>
               <div><span style={{ color:'var(--text-tertiary)' }}>LNG</span>  {currentLocation.lng.toFixed(5)}°E</div>
-              <div style={{ color:'var(--text-muted)', fontSize:'0.72rem', marginTop:'var(--sp-2)' }}>
-                Updated every 3.5s
-              </div>
+              <div style={{ color:'var(--text-muted)', fontSize:'0.72rem', marginTop:'var(--sp-2)' }}>Updated via IoT Stream</div>
             </div>
           </div>
         </div>

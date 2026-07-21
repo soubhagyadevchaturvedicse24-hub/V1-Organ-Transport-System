@@ -1,0 +1,33 @@
+meta {
+  name: Create Box
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/transport/boxes
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "boxId": "BOX-TEST-001",
+    "deviceId": "DEV-001",
+    "deviceSecret": "secret123",
+    "lastKnownLocation": {
+      "type": "Point",
+      "coordinates": [77.2090, 28.5659]
+    }
+  }
+}
+
+script:post-response {
+  if (res.status === 201) {
+    bru.setEnvVar("boxId", res.body.data._id);
+  }
+}

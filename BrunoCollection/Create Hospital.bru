@@ -1,0 +1,45 @@
+meta {
+  name: Create Hospital
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/hospitals
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "name": "Apollo Hospitals Delhi",
+    "hospitalCode": "HOS-DEL-0001",
+    "licenseNumber": "LIC-0001",
+    "licenseExpiry": "2030-01-01T00:00:00.000Z",
+    "region": "NORTH",
+    "state": "Delhi",
+    "hospitalType": "PRIVATE",
+    "registrationNumber": "REG-AP-01",
+    "transplantCapabilities": ["KIDNEY", "LIVER", "HEART"],
+    "address": {
+      "street": "Sarita Vihar",
+      "city": "Delhi",
+      "state": "Delhi",
+      "pincode": "110076"
+    },
+    "contact": {
+      "email": "delhi@apollo.in",
+      "phone": "9876543210"
+    }
+  }
+}
+
+script:post-response {
+  if (res.status === 201) {
+    bru.setEnvVar("hospitalId", res.body.data._id);
+  }
+}

@@ -1,0 +1,15 @@
+meta {
+  name: Get Blockchain History
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/audit/entity/organ/ORG-KID-001
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}

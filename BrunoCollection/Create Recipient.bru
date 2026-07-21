@@ -1,0 +1,35 @@
+meta {
+  name: Create Recipient
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/recipients
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "hospitalId": "{{hospitalId}}",
+    "bloodGroup": "O+",
+    "requiredOrganType": "KIDNEY",
+    "urgencyScore": 8,
+    "waitlistDate": "2024-01-15T00:00:00.000Z",
+    "status": "WAITLISTED",
+    "medicalDetails": {
+      "diagnosis": "End-stage renal disease",
+      "antibodies": ["HLA-A2"],
+      "hlaTyping": {
+        "A": ["2", "24"],
+        "B": ["7", "27"],
+        "DR": ["4", "15"]
+      }
+    }
+  }
+}

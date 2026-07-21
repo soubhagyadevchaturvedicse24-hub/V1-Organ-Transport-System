@@ -8,6 +8,12 @@ const router = Router();
 
 router.use(requireAuth);
 
+router.get(
+  '/',
+  requirePermission(MATCHING_PERMISSIONS.VIEW),
+  matchingController.listMatches
+);
+
 router.post(
   '/organs/:organId/run',
   requirePermission(MATCHING_PERMISSIONS.TRIGGER),

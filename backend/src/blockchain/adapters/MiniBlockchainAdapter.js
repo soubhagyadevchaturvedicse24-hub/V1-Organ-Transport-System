@@ -60,6 +60,7 @@ export default class MiniBlockchainAdapter extends BlockchainAdapter {
       eventType: b.eventType,
       payload: b.payload,
       hash: b.hash,
+      previousHash: b.previousHash,
     }));
   }
 

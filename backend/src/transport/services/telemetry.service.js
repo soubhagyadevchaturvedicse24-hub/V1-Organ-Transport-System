@@ -5,6 +5,7 @@ import { eventBus } from '../../domain/events/index.js';
 import { TRANSPORT_EVENTS } from '../../domain/events/transport.events.js';
 import TransportMission from '../../models/TransportMission.js';
 import logger from '../../logger/index.js';
+import mongoose from 'mongoose';
 
 export const logTelemetry = async (boxId, missionId, payload) => {
   // Validate basic payload
@@ -12,9 +13,19 @@ export const logTelemetry = async (boxId, missionId, payload) => {
     throw new Error('Invalid telemetry payload');
   }
 
+  // Resolve missionId (which could be the logical missionId like 'TRN-2026-001') to MongoDB ObjectId
+  let resolvedMissionId = missionId;
+  if (!mongoose.Types.ObjectId.isValid(missionId)) {
+    const mission = await TransportMission.findOne({ missionId });
+    if (!mission) {
+      throw new Error(`Mission with ID ${missionId} not found`);
+    }
+    resolvedMissionId = mission._id;
+  }
+
   const log = new TelemetryLog({
     boxId,
-    missionId,
+    missionId: resolvedMissionId,
     telemetry: {
       temperature: payload.temperature,
       batteryLevel: payload.batteryLevel,
@@ -32,11 +43,16 @@ export const logTelemetry = async (boxId, missionId, payload) => {
     lastKnownLocation: payload.geoLocation,
   });
 
-  eventBus.emit(TRANSPORT_EVENTS.TELEMETRY_RECEIVED, { boxId, missionId });
+  eventBus.emit(TRANSPORT_EVENTS.TELEMETRY_RECEIVED, {
+    boxId,
+    missionId: resolvedMissionId,
+    telemetry: log.telemetry,
+    location: log.telemetry.geoLocation
+  });
 
   // Evaluate thresholds and emit alerts if necessary
-  const alerts = evaluateAlerts(boxId, missionId, log.telemetry);
-  await updateMissionHealth(missionId, alerts);
+  const alerts = evaluateAlerts(boxId, resolvedMissionId, log.telemetry);
+  await updateMissionHealth(resolvedMissionId, alerts);
 
   return log;
 };

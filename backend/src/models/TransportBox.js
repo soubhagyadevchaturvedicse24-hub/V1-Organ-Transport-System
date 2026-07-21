@@ -15,7 +15,11 @@ const transportBoxSchema = new mongoose.Schema(
     },
     deviceSecretHash: {
       type: String,
-      required: true, // Hashed x-device-secret
+      required: false, // Hashed x-device-secret (for backward compatibility)
+    },
+    devicePublicKey: {
+      type: String,
+      required: false, // PEM public key for ECDSA signature validation
     },
     status: {
       type: String,

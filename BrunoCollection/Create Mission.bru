@@ -1,0 +1,32 @@
+meta {
+  name: Create Mission
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/transport/missions
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "missionId": "TRN-TEST-001",
+    "organId": "{{organId}}",
+    "matchId": "{{matchId}}",
+    "boxId": "{{boxId}}",
+    "originHospital": "{{hospitalId}}",
+    "destinationHospital": "{{hospitalId}}"
+  }
+}
+
+script:post-response {
+  if (res.status === 201) {
+    bru.setEnvVar("missionId", res.body.data._id);
+  }
+}

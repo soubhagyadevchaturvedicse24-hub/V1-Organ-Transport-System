@@ -12,5 +12,6 @@ router.use(requirePermission(AUDIT_PERMISSIONS.VIEW));
 
 router.get('/entity/:type/:id', auditController.getEntityHistory);
 router.get('/verify', auditController.verifyLedger);
+router.get('/verify-block/:blockIndex', auditController.verifyBlock);
 
 export default router;

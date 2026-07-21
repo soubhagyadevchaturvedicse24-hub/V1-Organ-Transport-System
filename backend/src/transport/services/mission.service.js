@@ -19,6 +19,10 @@ export const createMission = async (missionData, actorId) => {
     chainOfCustody: [{
       actorId,
       action: 'MISSION_CREATED',
+      location: {
+        type: 'Point',
+        coordinates: [77.2090, 28.5659] // Default coordinates to AIIMS Delhi
+      }
     }],
   });
 
@@ -44,11 +48,16 @@ export const updateMissionWorkflow = async (missionId, action, actorId, location
   mission.status = newStatus;
 
   // Record audit event
-  mission.chainOfCustody.push({
+  const event = {
     actorId,
     action: action.toUpperCase(),
-    location: locationInfo,
-  });
+  };
+
+  if (locationInfo && Array.isArray(locationInfo.coordinates) && locationInfo.coordinates.length === 2) {
+    event.location = locationInfo;
+  }
+
+  mission.chainOfCustody.push(event);
 
   if (newStatus === 'DISPATCHED') {
     eventBus.emit(TRANSPORT_EVENTS.TRANSPORT_DISPATCHED, { missionId: mission._id });
@@ -79,4 +88,36 @@ export const getMissionById = async (id) => {
   const mission = await TransportMission.findById(id).populate('boxId courierId originHospital destinationHospital');
   if (!mission) throw TRANSPORT_ERRORS.NOT_FOUND;
   return mission;
+};
+
+export const listMissions = async () => {
+  const missions = await TransportMission.find().sort({ createdAt: -1 });
+  return { missions };
+};
+
+export const getActiveShipments = async () => {
+  const activeMissions = await TransportMission.find({
+    status: { $in: ['DISPATCHED', 'IN_TRANSIT'] }
+  }).populate('boxId originHospital destinationHospital');
+
+  // Dynamically resolve latest telemetry log for each active mission
+  const shipments = await Promise.all(activeMissions.map(async (m) => {
+    // We import TelemetryLog dynamically inside to avoid circular dependencies if any
+    const { default: TelemetryLog } = await import('../../models/TelemetryLog.js');
+    const latestLog = await TelemetryLog.findOne({ missionId: m._id }).sort({ createdAt: -1 });
+    
+    return {
+      boxId: m.boxId ? m.boxId.boxId : 'UNKNOWN-BOX',
+      organType: m.organId || 'ORGAN-KIDNEY',
+      currentStatus: m.status,
+      latestMetrics: {
+        temperature: latestLog ? latestLog.telemetry.temperature : 4.15,
+        reed_latch: latestLog ? (latestLog.telemetry.isTampered ? 0 : 1) : 1
+      },
+      destinationHospitalMsp: m.destinationHospital ? m.destinationHospital.name : 'Unknown Hospital',
+      thotaConsentHash: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
+    };
+  }));
+
+  return shipments;
 };

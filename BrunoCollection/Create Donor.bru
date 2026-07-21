@@ -1,0 +1,43 @@
+meta {
+  name: Create Donor
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/donors
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "donorType": "DECEASED",
+    "hospitalId": "{{hospitalId}}",
+    "bloodGroup": "O+",
+    "age": 35,
+    "gender": "MALE",
+    "weight": 75,
+    "height": 180,
+    "medicalSummary": "Healthy donor, cleared for transplant.",
+    "consent": {
+      "verified": true,
+      "verifiedAt": "2026-07-21T00:00:00.000Z"
+    },
+    "medicalAssessment": {
+      "isMedicallyFit": true,
+      "assessmentDate": "2026-07-21T00:00:00.000Z",
+      "notes": "Cleared"
+    }
+  }
+}
+
+script:post-response {
+  if (res.status === 201) {
+    bru.setEnvVar("donorId", res.body.data._id);
+  }
+}

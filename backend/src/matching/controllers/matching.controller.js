@@ -37,3 +37,12 @@ export const declineRecommendation = async (req, res, next) => {
     next(error);
   }
 };
+
+export const listMatches = async (req, res, next) => {
+  try {
+    const matches = await matchingService.listMatches();
+    res.status(200).json(matches);
+  } catch (error) {
+    next(error);
+  }
+};

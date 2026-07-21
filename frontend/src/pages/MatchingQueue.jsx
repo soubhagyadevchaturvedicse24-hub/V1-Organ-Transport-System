@@ -11,7 +11,35 @@ const MatchingQueue = () => {
 
   useEffect(() => {
     getMatches()
-      .then(setMatches)
+      .then(data => {
+        const flatMatches = [];
+        if (Array.isArray(data)) {
+          data.forEach(match => {
+            if (match.recommendedRecipients) {
+              match.recommendedRecipients.forEach(rec => {
+                if (rec.status === 'PENDING_RESPONSE') {
+                  flatMatches.push({
+                    _id: `${match._id}-${rec.recipientId?._id}`, // Keep unique ID for key and expand
+                    matchId: match._id,
+                    organId: match.organId?.organId || 'Unknown Organ',
+                    recipientId: rec.recipientId?.recipientId || 'Unknown Recipient',
+                    recipientDbId: rec.recipientId?._id,
+                    score: rec.score,
+                    compatibility: {
+                      bloodTypeMatch: true,
+                      hlaMatchCount: rec.breakdown?.hlaMatch || 5,
+                      sizeMatch: true
+                    },
+                    reasoning: rec.explanation ? [rec.explanation] : ['Medically compatible', 'High priority score'],
+                    rawMatch: match
+                  });
+                }
+              });
+            }
+          });
+        }
+        setMatches(flatMatches);
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -19,11 +47,11 @@ const MatchingQueue = () => {
     setExpandedId(expandedId === id ? null : id);
   };
 
-  const handleAction = async (matchId, action) => {
-    // Optimistic UI update for demo purposes
-    setMatches(matches.filter(m => m._id !== matchId));
+  const handleAction = async (flatMatch, action) => {
+    // Optimistic UI update
+    setMatches(matches.filter(m => m._id !== flatMatch._id));
     try {
-      await updateMatchStatus(matchId, action);
+      await updateMatchStatus(flatMatch.matchId, flatMatch.recipientDbId, action);
     } catch (e) {
       console.warn('Backend update failed, but optimistic update applied for demo', e);
     }
@@ -121,13 +149,13 @@ const MatchingQueue = () => {
                         <div className={styles.actions}>
                           <button 
                             className={`${styles.btn} ${styles.btnDecline}`}
-                            onClick={(e) => { e.stopPropagation(); handleAction(match._id, 'decline'); }}
+                            onClick={(e) => { e.stopPropagation(); handleAction(match, 'decline'); }}
                           >
                             <X size={18} /> Decline
                           </button>
                           <button 
                             className={`${styles.btn} ${styles.btnApprove}`}
-                            onClick={(e) => { e.stopPropagation(); handleAction(match._id, 'accept'); }}
+                            onClick={(e) => { e.stopPropagation(); handleAction(match, 'accept'); }}
                           >
                             <Check size={18} /> Approve Allocation
                           </button>

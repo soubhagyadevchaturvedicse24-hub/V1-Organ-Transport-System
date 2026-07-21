@@ -1,172 +1,18 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Cpu, Play, Square, RotateCcw, Thermometer, Battery,
-  Navigation, AlertTriangle, Wifi, WifiOff, Settings,
+  AlertTriangle, Wifi, WifiOff, Settings,
   MapPin, Zap, ChevronRight, Activity
 } from 'lucide-react';
+import { useSimulatorContext } from '../context/SimulatorContext';
 import styles from './SimulatorPage.module.css';
 
-/* ════════════════════════════════════════════════════
-   Pure in-browser IoT Simulator
-   – Generates telemetry packets at configurable intervals
-   – Shows a live log console
-   – Attempts to POST to backend; falls back gracefully
-════════════════════════════════════════════════════ */
-
-const API = 'http://localhost:5000/api/v1';
-
-const defaults = {
-  boxId:       'BOX-2026-001',
-  deviceSecret:'secret123',
-  missionId:   'TRN-2026-001',
-  interval:    5,        // seconds
-  tempTarget:  4.0,      // °C ideal
-  tempSpike:   8,        // % chance
-  tamperChance:2,        // %
-  batteryDrain:0.3,      // % per tick
-  startLat:    28.5659,  // AIIMS Delhi
-  startLng:    77.2090,
-};
-
 const clamp = (v, mn, mx) => Math.max(mn, Math.min(mx, v));
-const rand  = (mn, mx) => mn + Math.random() * (mx - mn);
-const pct   = (chance) => Math.random() * 100 < chance;
-
-function useSimulator(cfg) {
-  const [running,  setRunning]  = useState(false);
-  const [telemetry,setTelemetry]= useState(null);
-  const [logs,     setLogs]     = useState([]);
-  const [ticks,    setTicks]    = useState(0);
-  const [connected,setConnected]= useState(null); // null=unknown, true, false
-
-  const state = useRef({
-    temp:    cfg.tempTarget,
-    battery: 100,
-    lat:     cfg.startLat,
-    lng:     cfg.startLng,
-  });
-
-  const addLog = useCallback((type, msg) => {
-    setLogs(prev => [{
-      id:   Date.now() + Math.random(),
-      type,          // 'info' | 'success' | 'warn' | 'error' | 'send'
-      msg,
-      ts:   new Date().toLocaleTimeString('en-IN', { hour12:false }),
-    }, ...prev].slice(0, 200));
-  }, []);
-
-  const tick = useCallback(async () => {
-    const s = state.current;
-
-    // ── Compute next state ───────────────────────
-    const spiked   = pct(cfg.tempSpike);
-    const tampered = pct(cfg.tamperChance);
-
-    if (spiked) {
-      s.temp = rand(8.5, 11.5);
-    } else {
-      s.temp = clamp(s.temp + rand(-0.15, 0.15), cfg.tempTarget - 0.5, 10);
-    }
-
-    s.battery = clamp(s.battery - cfg.batteryDrain, 0, 100);
-
-    // Move toward Tata Memorial Mumbai (19.0069, 72.8427)
-    const dLat = 19.0069 - s.lat;
-    const dLng = 72.8427 - s.lng;
-    const dist  = Math.sqrt(dLat**2 + dLng**2);
-    if (dist > 0.01) {
-      s.lat += (dLat / dist) * 0.08;
-      s.lng += (dLng / dist) * 0.08;
-    }
-
-    const payload = {
-      missionId:   cfg.missionId,
-      temperature: parseFloat(s.temp.toFixed(2)),
-      batteryLevel:parseFloat(s.battery.toFixed(1)),
-      isTampered:  tampered,
-      geoLocation: { type:'Point', coordinates:[s.lng, s.lat] },
-    };
-
-    // Update display state
-    setTelemetry({ ...payload, lat: s.lat, lng: s.lng, spiked, tampered });
-    setTicks(t => t + 1);
-
-    // ── Attempt API push ─────────────────────────
-    const logMsg = `[TICK] Temp:${payload.temperature}°C  Bat:${payload.batteryLevel}%  Tamper:${tampered}  Spike:${spiked}`;
-    addLog('send', logMsg);
-
-    try {
-      const res = await fetch(`${API}/device/telemetry`, {
-        method: 'POST',
-        headers: {
-          'Content-Type':   'application/json',
-          'x-device-id':    cfg.boxId,
-          'x-device-secret':cfg.deviceSecret,
-        },
-        body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(4000),
-      });
-
-      if (res.ok) {
-        setConnected(true);
-        addLog('success', `✓ Backend accepted  [${res.status}]`);
-      } else {
-        const txt = await res.text().catch(() => '');
-        setConnected(false);
-        addLog('warn', `✗ Backend rejected  [${res.status}] ${txt.slice(0,80)}`);
-      }
-    } catch (err) {
-      setConnected(false);
-      addLog('error', `✗ Cannot reach backend — ${err.message} (packet generated locally)`);
-    }
-  }, [cfg, addLog]);
-
-  // Main loop
-  const timerRef = useRef(null);
-
-  const start = useCallback(() => {
-    if (running) return;
-    addLog('info', `▶ Simulator started — Box:${cfg.boxId}  Mission:${cfg.missionId}  Interval:${cfg.interval}s`);
-    setRunning(true);
-    tick(); // immediate first tick
-    timerRef.current = setInterval(tick, cfg.interval * 1000);
-  }, [running, tick, cfg, addLog]);
-
-  const stop = useCallback(() => {
-    clearInterval(timerRef.current);
-    setRunning(false);
-    addLog('info', '■ Simulator stopped.');
-  }, [addLog]);
-
-  const reset = useCallback(() => {
-    stop();
-    state.current = { temp: cfg.tempTarget, battery: 100, lat: cfg.startLat, lng: cfg.startLng };
-    setTelemetry(null);
-    setTicks(0);
-    setConnected(null);
-    setLogs([]);
-    addLog('info', '↺ Simulator reset.');
-  }, [stop, cfg, addLog]);
-
-  const overrideTemp = useCallback((val) => {
-    state.current.temp = val;
-    addLog('info', `Manual override: Temp set to ${val}°C`);
-  }, [addLog]);
-
-  const overrideBattery = useCallback((val) => {
-    state.current.battery = val;
-    addLog('info', `Manual override: Battery set to ${val}%`);
-  }, [addLog]);
-
-  useEffect(() => () => clearInterval(timerRef.current), []);
-
-  return { running, telemetry, logs, ticks, connected, start, stop, reset, overrideTemp, overrideBattery };
-}
 
 /* ════════════════════════════════════════════════════
    Sub-components
-════════════════════════════════════════════════════ */
+   ════════════════════════════════════════════════════ */
 const GaugeBar = ({ label, value, max, unit, color, icon: Icon, warn, critical }) => {
   const pct = clamp((value / max) * 100, 0, 100);
   const isWarn = warn != null && value > warn;
@@ -213,17 +59,21 @@ const LogLine = ({ entry }) => {
 
 /* ════════════════════════════════════════════════════
    Main Page
-════════════════════════════════════════════════════ */
+   ════════════════════════════════════════════════════ */
 const SimulatorPage = () => {
-  const [cfg, setCfg] = useState({ ...defaults });
+  const sim = useSimulatorContext();
+  const cfg = sim.cfg;
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState({ ...defaults });
+  const [draft, setDraft] = useState({ ...cfg });
 
-  const sim = useSimulator(cfg);
+  // Sync draft if config updates globally
+  useEffect(() => {
+    setDraft({ ...cfg });
+  }, [cfg]);
 
   const applyConfig = () => {
     sim.reset();
-    setCfg({ ...draft });
+    sim.setCfg({ ...draft });
     setEditing(false);
   };
 
@@ -296,25 +146,46 @@ const SimulatorPage = () => {
             <div className={styles.cardHead}>
               <Settings size={16} style={{ color:'var(--brand-purple)' }} />
               <h3>Live Overrides</h3>
+              {sim.isManualMode && (
+                <button 
+                  onClick={sim.releaseManual} 
+                  className="badge badge-warning" 
+                  style={{ marginLeft: 'auto', fontSize: '9px', border: '1px solid rgba(251,191,36,0.5)', padding: '2px 8px', cursor: 'pointer' }}
+                >
+                  Manual Control: Active [Release]
+                </button>
+              )}
             </div>
             <div className={styles.overrideList}>
               <div className={styles.overrideRow}>
                 <label className={styles.overrideLabel}>Force Temp (°C)</label>
                 <input type="range" className={styles.slider} min="0" max="15" step="0.5"
-                  value={t ? t.temperature : cfg.tempTarget}
+                  value={sim.currentTemp}
                   onChange={e => sim.overrideTemp(parseFloat(e.target.value))}
                   disabled={!sim.running}
                 />
-                <span className={`mono ${styles.overrideVal}`}>{t ? t.temperature : cfg.tempTarget}°C</span>
+                <span className={`mono ${styles.overrideVal}`}>{sim.currentTemp}°C</span>
               </div>
               <div className={styles.overrideRow}>
                 <label className={styles.overrideLabel}>Force Battery (%)</label>
                 <input type="range" className={styles.slider} min="0" max="100" step="1"
-                  value={t ? t.batteryLevel : 100}
+                  value={sim.currentBattery}
                   onChange={e => sim.overrideBattery(parseFloat(e.target.value))}
                   disabled={!sim.running}
                 />
-                <span className={`mono ${styles.overrideVal}`}>{t ? t.batteryLevel : 100}%</span>
+                <span className={`mono ${styles.overrideVal}`}>{sim.currentBattery}%</span>
+              </div>
+              <div className={styles.overrideRow}>
+                <label className={styles.overrideLabel}>Force Tamper (Lid Open)</label>
+                <input type="checkbox"
+                  checked={sim.isTamperedMode}
+                  onChange={e => sim.overrideTamper(e.target.checked)}
+                  disabled={!sim.running}
+                  style={{ cursor: 'pointer', margin: '0 8px', width: '16px', height: '16px', accentColor: 'var(--brand-red)' }}
+                />
+                <span className={`mono ${styles.overrideVal}`} style={{ color: sim.isTamperedMode ? 'var(--status-critical)' : 'var(--text-secondary)' }}>
+                  {sim.isTamperedMode ? 'TAMPERED' : 'SECURE'}
+                </span>
               </div>
             </div>
           </motion.div>
