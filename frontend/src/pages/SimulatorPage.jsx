@@ -7,18 +7,13 @@ import {
   RefreshCcw
 } from 'lucide-react';
 import { useSimulatorContext } from '../context/SimulatorContext';
+import { getBaseUrl } from '../services/api';
 import styles from './SimulatorPage.module.css';
 
 /* ─── helpers ─────────────────────────────────────────────────── */
 const clamp = (v, mn, mx) => Math.max(mn, Math.min(mx, v));
 
-const getBaseUrl = () => {
-  if (import.meta.env.VITE_API_BASE_URL) return import.meta.env.VITE_API_BASE_URL;
-  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-    return 'http://localhost:5000/api/v1';
-  }
-  return 'https://v1-organ-transport-system.onrender.com/api/v1';
-};
+
 
 /* Directly execute a step in the backend (DB + Blockchain) with fail-safes */
 const notarizeToChain = async (stepId, eventType, entityId, payload, deviceId, deviceSecret) => {

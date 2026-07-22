@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
+import { getBaseUrl } from '../services/api';
 
 const SimulatorContext = createContext(null);
 
@@ -89,13 +90,6 @@ export const SimulatorProvider = ({ children }) => {
     addLog('send', logMsg);
 
     try {
-      const getBaseUrl = () => {
-        if (import.meta.env.VITE_API_BASE_URL) return import.meta.env.VITE_API_BASE_URL;
-        if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
-          return 'http://localhost:5000/api/v1';
-        }
-        return 'https://v1-organ-transport-system.onrender.com/api/v1';
-      };
 
       const API = getBaseUrl();
       const res = await fetch(`${API}/device/telemetry`, {
@@ -192,13 +186,6 @@ export const SimulatorProvider = ({ children }) => {
   const triggerMilestone = useCallback(async (milestone) => {
     addLog('info', `⚡ Triggering Milestone: ${milestone}`);
     try {
-      const getBaseUrl = () => {
-        if (import.meta.env.VITE_API_BASE_URL) return import.meta.env.VITE_API_BASE_URL;
-        if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
-          return 'http://localhost:5000/api/v1';
-        }
-        return 'https://v1-organ-transport-system.onrender.com/api/v1';
-      };
 
       const API = getBaseUrl();
       let res = await fetch(`${API}/device/milestone`, {

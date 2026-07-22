@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { io } from 'socket.io-client';
 import { useAuth } from './AuthContext';
+import { getSocketUrl } from '../services/api';
 
 const SocketContext = createContext(null);
 
@@ -14,8 +15,9 @@ export const SocketProvider = ({ children }) => {
 
   useEffect(() => {
     if (user && token) {
-      // Connect to the backend WebSocket server
-      const newSocket = io('http://localhost:5000', {
+      // Connect to the backend WebSocket server dynamically
+      const socketUrl = getSocketUrl();
+      const newSocket = io(socketUrl, {
         auth: { token },
         withCredentials: true
       });
