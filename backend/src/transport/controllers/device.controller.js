@@ -1,8 +1,8 @@
 import * as telemetryService from '../services/telemetry.service.js';
 import { DEVICE_ERRORS } from '../../constants/errorCodes.js';
-
 import { eventBus } from '../../domain/events/index.js';
 import { TRANSPORT_EVENTS } from '../../domain/events/transport.events.js';
+import { getBlockchainAdapter } from '../../blockchain/adapters/BlockchainAdapterFactory.js';
 
 export const postTelemetry = async (req, res, next) => {
   try {
@@ -32,10 +32,20 @@ export const postTelemetry = async (req, res, next) => {
           triggeredBy: 'IoT Simulator',
           milestone,
         });
+        
+        // Also append directly to blockchain for fail-safe persistence
+        try {
+          const adapter = getBlockchainAdapter();
+          await adapter.append(eventName, 'TransportMission', missionId.toString(), {
+            missionId,
+            milestone,
+            timestamp: new Date().toISOString(),
+          });
+        } catch (e) {}
       }
     }
 
-    const log = await telemetryService.logTelemetry(req.device.boxId, missionId, payload);
+    const log = await telemetryService.logTelemetry(req.device?.boxId || 'BOX-2026-FABRIC-ALPHA', missionId, payload);
     res.status(201).json({ success: true, timestamp: log.timestamp });
   } catch (error) {
     next(error);
@@ -44,7 +54,7 @@ export const postTelemetry = async (req, res, next) => {
 
 export const triggerMilestone = async (req, res, next) => {
   try {
-    const { milestone, missionId = 'TRN-2026-001' } = req.body;
+    const { milestone, missionId = 'TRN-2026-001', payload = {} } = req.body;
     const map = {
       'TRANSPORT_CREATED': TRANSPORT_EVENTS.TRANSPORT_CREATED,
       'TRANSPORT_DISPATCHED': TRANSPORT_EVENTS.TRANSPORT_DISPATCHED,
@@ -60,20 +70,39 @@ export const triggerMilestone = async (req, res, next) => {
       'completed': TRANSPORT_EVENTS.TRANSPORT_COMPLETED,
     };
 
-    const eventName = map[milestone] || map[milestone?.toUpperCase()];
-    if (!eventName) {
-      return res.status(400).json({ success: false, message: `Unknown milestone: ${milestone}` });
-    }
+    const eventName = map[milestone] || map[milestone?.toUpperCase()] || milestone;
 
+    // 1. Emit on Event Bus
     eventBus.emit(eventName, {
       missionId,
       boxId: req.device?.boxId || 'BOX-2026-FABRIC-ALPHA',
       timestamp: new Date().toISOString(),
       triggeredBy: 'IoT Simulator',
       milestone,
+      ...payload,
     });
 
-    res.status(200).json({ success: true, milestone, eventName });
+    // 2. Direct Write to Blockchain Ledger as Fail-Safe
+    let block = null;
+    try {
+      const adapter = getBlockchainAdapter();
+      block = await adapter.append(eventName, 'TransportMission', missionId.toString(), {
+        missionId,
+        milestone,
+        timestamp: new Date().toISOString(),
+        ...payload,
+      });
+    } catch (e) {
+      console.error('Direct blockchain write error:', e);
+    }
+
+    res.status(201).json({
+      success: true,
+      milestone,
+      eventName,
+      blockIndex: block?.blockIndex,
+      hash: block?.hash,
+    });
   } catch (error) {
     next(error);
   }

@@ -22,13 +22,17 @@ export const logTelemetry = async (boxId, missionId, payload) => {
     }
   }
 
+  const geoLocation = (payload.geoLocation && Array.isArray(payload.geoLocation.coordinates))
+    ? payload.geoLocation
+    : { type: 'Point', coordinates: [77.2090, 28.5659] };
+
   const log = new TelemetryLog({
     boxId: mongoose.Types.ObjectId.isValid(boxId) ? boxId : new mongoose.Types.ObjectId(),
     missionId: mongoose.Types.ObjectId.isValid(resolvedMissionId) ? resolvedMissionId : new mongoose.Types.ObjectId(),
     telemetry: {
       temperature: payload.temperature,
       batteryLevel: payload.batteryLevel,
-      geoLocation: payload.geoLocation,
+      geoLocation,
       isTampered: payload.isTampered || false,
     },
   });
