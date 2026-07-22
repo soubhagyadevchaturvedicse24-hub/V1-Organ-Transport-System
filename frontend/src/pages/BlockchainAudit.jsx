@@ -1,310 +1,292 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Search, ShieldCheck, AlertTriangle, Database, 
-  Activity, CheckCircle, GitFork, Truck,
-  FileJson, Lock, RefreshCcw, Check
+  Link as LinkIcon, 
+  Clock, 
+  Database, 
+  CheckCircle, 
+  XCircle, 
+  ChevronDown, 
+  ChevronUp, 
+  ShieldCheck, 
+  Server,
+  Activity
 } from 'lucide-react';
-import { getEntityHistory } from '../services/api';
+import { getAllBlocks, verifyLedger } from '../services/api';
 import styles from './BlockchainAudit.module.css';
 
-const getEventConfig = (eventType) => {
-  if (eventType.includes('REGISTERED')) return { icon: FileJson, color: 'var(--brand-blue)' };
-  if (eventType.includes('ASSESSMENT')) return { icon: Activity, color: 'var(--brand-purple)' };
-  if (eventType.includes('APPROVED')) return { icon: CheckCircle, color: 'var(--brand-green)' };
-  if (eventType.includes('ALLOCATED')) return { icon: GitFork, color: 'var(--brand-indigo)' };
-  if (eventType.includes('DISPATCHED') || eventType.includes('ARRIVED')) return { icon: Truck, color: 'var(--brand-teal)' };
-  if (eventType.includes('alert')) return { icon: AlertTriangle, color: 'var(--brand-orange)' };
-  if (eventType.includes('health')) return { icon: Activity, color: 'var(--brand-yellow)' };
-  return { icon: Database, color: 'var(--text-secondary)' };
+const getHumanReadableType = (type) => {
+  if (!type) return 'System Event';
+  const map = {
+    'ORGAN_REGISTERED': '🫀 Organ Registered',
+    'ORGAN_ASSESSMENT_STARTED': '🔬 Assessment Started',
+    'ORGAN_VIABILITY_APPROVED': '✅ Viability Approved',
+    'ORGAN_ALLOCATED': '📋 Organ Allocated',
+    'ORGAN_DISPATCHED': '🚁 Organ Dispatched',
+    'DONOR_CREATED': '👤 Donor Created',
+    'DONOR_CONSENT_VERIFIED': '📝 Consent Verified',
+    'matching.started': '🤝 Matching Started',
+    'matching.match_found': '🎯 Match Found',
+    'matching.accepted': '✅ Match Accepted',
+    'MATCHING_TRIGGERED': '🤝 Matching Triggered',
+    'MATCH_ACCEPTED': '✅ Match Accepted',
+    'transport.created': '📦 Transport Created',
+    'transport.dispatched': '🚁 Transport Dispatched',
+    'transport.started': '🏃 Transit Started',
+    'transport.arrived': '🏥 Transport Arrived',
+    'transport.completed': '✅ Transport Completed',
+    'TRANSPORT_CREATED': '📦 Transport Created',
+    'TRANSPORT_DISPATCHED': '🚁 Transport Dispatched',
+    'TRANSPORT_ARRIVED': '🏥 Transport Arrived',
+    'TRANSPORT_COMPLETED': '✅ Transport Completed',
+    'TELEMETRY_ALERT': '⚠️ Telemetry Alert',
+    'HEALTH_STATUS_CHANGED': '💓 Health Status Changed',
+  };
+  return map[type] || type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 };
 
 const BlockchainAudit = () => {
-  const [entityType, setEntityType] = useState('Organ');
-  const [entityId, setEntityId] = useState('ORG-KID-001');
-  const [timeline, setTimeline] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [verification, setVerification] = useState(null);
-  const [verifying, setVerifying] = useState(false);
-  const [verificationProgress, setVerificationProgress] = useState(0);
-
-  const [verificationStatuses, setVerificationStatuses] = useState({});
-
-  const fetchHistory = async () => {
-    setLoading(true);
-    setVerification(null);
-    setVerificationStatuses({});
-    setVerificationProgress(0);
+  const [blocks, setBlocks] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState('All');
+  const [expandedBlock, setExpandedBlock] = useState(null);
+  const [verifyState, setVerifyState] = useState({ loading: false, result: null });
+  const [chainStatus, setChainStatus] = useState('Valid'); // Valid | Invalid | Checking
+  
+  const fetchBlocks = async () => {
     try {
-      const data = await getEntityHistory(entityType, entityId);
-      data.sort((a, b) => a.blockIndex - b.blockIndex);
-      setTimeline(data);
-    } catch (e) {
-      console.warn('Failed to fetch history', e);
-      setTimeline([]);
+      const data = await getAllBlocks();
+      // Ensure we have an array
+      const blockArray = Array.isArray(data) ? data : (data?.blocks || []);
+      // Sort by index descending (newest first)
+      const sorted = [...blockArray].sort((a, b) => (b.blockIndex || 0) - (a.blockIndex || 0));
+      setBlocks(sorted);
+    } catch (err) {
+      console.error('Failed to fetch blocks:', err);
     } finally {
       setLoading(false);
     }
   };
 
+  useEffect(() => {
+    fetchBlocks();
+    // Auto-refresh every 5 seconds
+    const interval = setInterval(fetchBlocks, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
   const handleVerify = async () => {
-    if (timeline.length === 0) return;
-    setVerifying(true);
-    setVerification(null);
-    setVerificationProgress(0);
-    const newStatuses = {};
-    
+    setVerifyState({ loading: true, result: null });
+    setChainStatus('Checking');
     try {
-      for (let i = 0; i < timeline.length; i++) {
-        const block = timeline[i];
-        newStatuses[block.blockIndex] = 'verifying';
-        setVerificationStatuses({ ...newStatuses });
-        
-        // 1. Fetch blockchain block proofs from Express gateway
-        const res = await fetch(`/api/audit/verify-block/${block.blockIndex}`);
-        if (!res.ok) throw new Error('Failed to verify block proofs');
-        const blockDetails = await res.json();
-        
-        // 2. Compute SHA-256 fingerprint locally in browser sandbox
-        const rawPayloadText = JSON.stringify(block.payload);
-        const encoder = new TextEncoder();
-        const data = encoder.encode(rawPayloadText);
-        const hashBuffer = await window.crypto.subtle.digest('SHA-256', data);
-        const hashArray = Array.from(new Uint8Array(hashBuffer));
-        const computedHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-        
-        // 3. Verify match
-        const expectedHash = blockDetails.proofs.expectedPayloadSHA256;
-        if (computedHash === expectedHash) {
-          newStatuses[block.blockIndex] = 'valid';
-        } else {
-          newStatuses[block.blockIndex] = 'invalid';
-        }
-        
-        setVerificationStatuses({ ...newStatuses });
-        setVerificationProgress(((i + 1) / timeline.length) * 100);
-        await new Promise(r => setTimeout(r, 600)); // Slower loop for visual effect
-      }
-      
-      const allValid = Object.values(newStatuses).every(s => s === 'valid');
-      setVerification({
-        valid: allValid,
-        totalBlocks: timeline.length,
-        verifiedBlocks: timeline.length,
-        brokenBlock: allValid ? null : Object.keys(newStatuses).find(k => newStatuses[k] === 'invalid')
+      const result = await verifyLedger();
+      setVerifyState({ loading: false, result });
+      setChainStatus(result.valid ? 'Valid' : 'Invalid');
+    } catch (err) {
+      setVerifyState({ 
+        loading: false, 
+        result: { valid: false, error: err.message || 'Verification failed' } 
       });
-    } catch (e) {
-      console.error(e);
-      setVerification({ valid: false, error: 'Cryptographic verification failed.' });
-    } finally {
-      setVerifying(false);
+      setChainStatus('Invalid');
     }
   };
 
-  useEffect(() => {
-    fetchHistory();
-  }, []);
+  const truncateHash = (hash) => {
+    if (!hash) return 'N/A';
+    return `${hash.substring(0, 8)}...${hash.substring(hash.length - 8)}`;
+  };
+
+  const formatDate = (timestamp) => {
+    if (!timestamp) return 'Unknown time';
+    const d = new Date(timestamp);
+    if (isNaN(d.getTime())) return 'Invalid date';
+    return new Intl.DateTimeFormat('en-US', {
+      month: 'short', day: 'numeric',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+      fractionalSecondDigits: 3
+    }).format(d);
+  };
+
+  const filteredBlocks = blocks.filter(b => {
+    if (filter === 'All') return true;
+    const type = b.entityType?.toLowerCase() || '';
+    if (filter === 'Organ' && type.includes('organ')) return true;
+    if (filter === 'Donor' && type.includes('donor')) return true;
+    if (filter === 'Match' && type.includes('match')) return true;
+    if (filter === 'Transport' && type.includes('transport')) return true;
+    return false;
+  });
+
+  const lastBlockTime = blocks.length > 0 && blocks[0].timestamp 
+    ? formatDate(blocks[0].timestamp) 
+    : '--';
 
   return (
-    <div className={styles.pageContainer}>
+    <div className={styles.container}>
       <div className={styles.header}>
-        <h1 className="gradient-text">Blockchain Audit</h1>
-        <p className={styles.subtitle}>Cryptographically verify the immutable chain of custody</p>
+        <div className={styles.title}>
+          <Activity size={24} className={styles.pulseIcon} />
+          Blockchain Audit Trail
+          <div className={styles.livePulse} title="Live feed active"></div>
+        </div>
       </div>
 
-      <div className={styles.layout}>
-        <div className={styles.timelineSection}>
-          <div className={styles.searchBox}>
-            <div className={styles.inputGroup}>
-              <select 
-                value={entityType} 
-                onChange={e => setEntityType(e.target.value)}
-                className={styles.select}
-              >
-                <option value="Donor">Donor</option>
-                <option value="Organ">Organ</option>
-                <option value="Match">Match</option>
-                <option value="TransportMission">TransportMission</option>
-              </select>
-              <input 
-                type="text" 
-                value={entityId} 
-                onChange={e => setEntityId(e.target.value)} 
-                placeholder="Enter Entity ID (e.g. ORG-KID-001)"
-                className={styles.input}
-                onKeyDown={e => e.key === 'Enter' && fetchHistory()}
-              />
-            </div>
-            <button className={styles.btnSearch} onClick={fetchHistory}>
-              <Search size={18} /> Retrieve Ledger
-            </button>
+      <div className={styles.statsBar}>
+        <div className={styles.statCard}>
+          <div className={styles.statLabel}>
+            <Database size={16} /> Total Blocks
           </div>
+          <div className={styles.statValue}>{blocks.length}</div>
+        </div>
+        <div className={styles.statCard}>
+          <div className={styles.statLabel}>
+            <ShieldCheck size={16} /> Chain Status
+          </div>
+          <div className={`${styles.statValue} ${chainStatus === 'Valid' ? styles.valid : chainStatus === 'Invalid' ? styles.invalid : ''}`}>
+            {chainStatus === 'Valid' && <CheckCircle size={20} />}
+            {chainStatus === 'Invalid' && <XCircle size={20} />}
+            {chainStatus === 'Checking' && <Activity size={20} className={styles.spinning} />}
+            {chainStatus}
+          </div>
+        </div>
+        <div className={styles.statCard}>
+          <div className={styles.statLabel}>
+            <Clock size={16} /> Last Block
+          </div>
+          <div className={styles.statValue} style={{ fontSize: '1rem' }}>
+            {lastBlockTime}
+          </div>
+        </div>
+        <div className={styles.statCard}>
+          <div className={styles.statLabel}>
+            <Server size={16} /> Network
+          </div>
+          <div className={styles.statValue} style={{ fontSize: '1rem' }}>
+            Hyperledger Fabric
+          </div>
+        </div>
+      </div>
 
-          <div className={styles.timelineContainer}>
-            {loading ? (
-              <div className={styles.loader}>
-                <RefreshCcw size={48} className="spin" style={{ color: 'var(--brand-blue)' }} />
-                <span>Querying Distributed Ledger...</span>
-              </div>
-            ) : timeline.length === 0 ? (
-              <div className={styles.emptyState}>
-                <Database size={48} style={{ color: 'var(--text-tertiary)' }} />
-                <span>No blocks found for this entity.</span>
-              </div>
-            ) : (
-              <div className={styles.timeline}>
-                <AnimatePresence>
-                  {timeline.map((block, idx) => {
-                    const status = verificationStatuses[block.blockIndex];
-                    const cfg = getEventConfig(block.eventType);
-                    const Icon = cfg.icon;
+      <div className={styles.controls}>
+        <div className={styles.filters}>
+          {['All', 'Organ', 'Donor', 'Match', 'Transport'].map(f => (
+            <button
+              key={f}
+              className={`${styles.filterBtn} ${filter === f ? styles.active : ''}`}
+              onClick={() => setFilter(f)}
+            >
+              {f}
+            </button>
+          ))}
+        </div>
+        <div>
+          <button 
+            className={styles.verifyBtn} 
+            onClick={handleVerify}
+            disabled={verifyState.loading}
+          >
+            <ShieldCheck size={18} />
+            {verifyState.loading ? 'Verifying...' : 'Verify Chain'}
+          </button>
+        </div>
+      </div>
 
-                    return (
-                      <motion.div 
-                        key={block._id || block.blockIndex}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: idx * 0.05 }}
-                        className={`${styles.timelineItem} ${status ? styles[status] : ''}`}
-                      >
-                        <div className={`${styles.timelineLine} ${status ? styles[status] : ''}`}></div>
-                        
-                        <div className={styles.timelineIcon} style={{ color: status === 'valid' ? 'var(--brand-green)' : status === 'invalid' ? 'var(--brand-red)' : cfg.color }}>
-                          {status === 'valid' ? <Check size={20} /> : status === 'invalid' ? <AlertTriangle size={20} /> : <Icon size={20} />}
-                        </div>
-                        
-                        <div className={styles.blockCard}>
-                          <div className={styles.blockHeader}>
-                            <div className={styles.blockHeaderLeft}>
-                              <h4>{block.eventType}</h4>
-                              <span className={styles.blockTime}>{new Date(block.timestamp).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'medium' })}</span>
-                            </div>
-                            
-                            {status === 'valid' && (
-                              <span className={`${styles.statusBadge} ${styles.badgeValid}`}>
-                                INTEGRITY VERIFIED
-                              </span>
-                            )}
-                            {status === 'invalid' && (
-                              <span className={`${styles.statusBadge} ${styles.badgeInvalid}`}>
-                                ALERT: HASH MISMATCH
-                              </span>
-                            )}
-                            {status === 'verifying' && (
-                              <span className={`${styles.statusBadge} ${styles.badgeVerifying}`}>
-                                COMPUTING SHA-256...
-                              </span>
-                            )}
+      {verifyState.result && (
+        <div className={`${styles.verifyResult} ${verifyState.result.valid ? styles.success : styles.error}`}>
+          {verifyState.result.valid 
+            ? <><CheckCircle size={18} /> Cryptographic verification passed. All {verifyState.result.totalBlocks || blocks.length} blocks are mathematically linked.</>
+            : <><XCircle size={18} /> Verification failed! {verifyState.result.error || 'Hash mismatch detected.'}</>
+          }
+        </div>
+      )}
+
+      {loading && blocks.length === 0 ? (
+        <div className={styles.emptyState}>Loading blockchain data...</div>
+      ) : filteredBlocks.length === 0 ? (
+        <div className={styles.emptyState}>No blocks found for this filter.</div>
+      ) : (
+        <div className={styles.feed}>
+          <AnimatePresence>
+            {filteredBlocks.map((block, i) => {
+              const isExpanded = expandedBlock === block.blockIndex;
+              
+              return (
+                <motion.div 
+                  key={block.blockIndex ?? block.hash ?? i}
+                  className={styles.blockWrapper}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <div className={styles.chainLink}>
+                    <LinkIcon size={16} />
+                  </div>
+                  <div 
+                    className={styles.blockCard}
+                    onClick={() => setExpandedBlock(isExpanded ? null : block.blockIndex)}
+                  >
+                    <div className={styles.blockHeader}>
+                      <div className={styles.blockLeft}>
+                        <div className={styles.blockIndex}>#{block.blockIndex}</div>
+                        <div>
+                          <div className={styles.blockType}>
+                            {getHumanReadableType(block.eventType)}
                           </div>
-                          
-                          <div className={styles.blockData}>
-                            <div className={styles.cryptoHashes}>
-                              <div className={styles.hashRow}>
-                                <span className={styles.hashLabel}>Block</span>
-                                <span className={styles.hashValue} style={{ background: 'transparent', color: 'var(--text-primary)', fontWeight: 'bold' }}>
-                                  #{block.blockIndex}
-                                </span>
-                              </div>
-                              <div className={styles.hashRow}>
-                                <span className={styles.hashLabel}>Hash</span>
-                                <span className={styles.hashValue} title={block.hash}>
-                                  {block.hash || '—'}
-                                </span>
-                              </div>
-                              <div className={styles.hashRow}>
-                                <span className={styles.hashLabel}>Prev</span>
-                                <span className={styles.hashValue} title={block.previousHash} style={{ color: 'var(--text-secondary)', background: 'rgba(255,255,255,0.05)' }}>
-                                  {block.previousHash || '—'}
-                                </span>
-                              </div>
+                          <div className={styles.blockEntity}>
+                            {block.entityType} {block.entityId ? `- ${block.entityId.substring(0,8)}...` : ''}
+                          </div>
+                        </div>
+                      </div>
+                      <div className={styles.blockRight}>
+                        <div className={styles.blockHash}>
+                          {truncateHash(block.hash)}
+                        </div>
+                        <div className={styles.blockTime}>
+                          {formatDate(block.timestamp)}
+                        </div>
+                        {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                      </div>
+                    </div>
+
+                    <AnimatePresence>
+                      {isExpanded && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.2 }}
+                          style={{ overflow: 'hidden' }}
+                        >
+                          <div className={styles.blockDetails} onClick={(e) => e.stopPropagation()}>
+                            <div className={styles.detailRow}>
+                              <div className={styles.detailLabel}>Block Hash</div>
+                              <div className={styles.detailValue}>{block.hash || 'N/A'}</div>
                             </div>
-                            
-                            <div className={styles.payloadBox}>
-                              <div className={styles.payloadLabel}>
-                                <Database size={12} /> Payload Data
-                              </div>
-                              <pre className={styles.payloadContent}>
-                                {JSON.stringify(block.payload, null, 2)}
+                            <div className={styles.detailRow}>
+                              <div className={styles.detailLabel}>Previous Hash</div>
+                              <div className={styles.detailValue}>{block.previousHash || 'Genesis Block'}</div>
+                            </div>
+                            <div className={styles.detailRow}>
+                              <div className={styles.detailLabel}>Transaction ID</div>
+                              <div className={styles.detailValue}>{block.transactionId || 'N/A'}</div>
+                            </div>
+                            <div className={styles.detailRow}>
+                              <div className={styles.detailLabel}>Payload Data</div>
+                              <pre className={`${styles.detailValue} ${styles.payload}`}>
+                                {block.payload ? JSON.stringify(block.payload, null, 2) : 'No payload data'}
                               </pre>
                             </div>
                           </div>
-                        </div>
-                      </motion.div>
-                    );
-                  })}
-                </AnimatePresence>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className={styles.verificationSection}>
-          <div className={styles.verificationCard}>
-            <div className={styles.cardHeader}>
-              <Lock size={32} className={styles.iconPrimary} />
-              <h3>Ledger Verification</h3>
-            </div>
-            
-            <p className={styles.verificationDesc}>
-              Simulates a cryptographic audit node by recalculating the SHA-256 hashes for every block locally in your browser. This ensures the chain of custody has not been tampered with.
-            </p>
-
-            <button 
-              className={styles.btnVerify} 
-              onClick={handleVerify}
-              disabled={verifying || timeline.length === 0}
-            >
-              {verifying ? (
-                <><RefreshCcw size={20} className="spin" /> Verifying Ledger...</>
-              ) : (
-                <><ShieldCheck size={20} /> Verify Cryptographic Integrity</>
-              )}
-            </button>
-
-            {verifying && (
-              <div className={styles.progressContainer}>
-                <div 
-                  className={styles.progressBar} 
-                  style={{ width: `${verificationProgress}%` }}
-                />
-              </div>
-            )}
-
-            {verification && (
-              <motion.div 
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className={`${styles.verificationResult} ${verification.valid ? styles.valid : styles.invalid}`}
-              >
-                <div className={styles.resultHeader}>
-                  {verification.valid ? (
-                    <><ShieldCheck size={28} /> <span>100% SECURE & VERIFIED</span></>
-                  ) : (
-                    <><AlertTriangle size={28} /> <span>LEDGER COMPROMISED</span></>
-                  )}
-                </div>
-
-                <div className={styles.resultStats}>
-                  <div className={styles.statRow}>
-                    <span>Total Blocks Checked:</span>
-                    <strong>{verification.totalBlocks}</strong>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
-                  <div className={styles.statRow}>
-                    <span>Verification Time:</span>
-                    <strong>{(verification.totalBlocks * 0.6).toFixed(1)}s</strong>
-                  </div>
-                  {!verification.valid && (
-                    <div className={styles.statRowError} style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid rgba(239, 68, 68, 0.2)' }}>
-                      <span>Failed Block Hash:</span>
-                      <strong>#{verification.brokenBlock}</strong>
-                    </div>
-                  )}
-                </div>
-              </motion.div>
-            )}
-          </div>
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
         </div>
-      </div>
+      )}
     </div>
   );
 };

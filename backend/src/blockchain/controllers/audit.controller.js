@@ -5,15 +5,19 @@ import LedgerBlock from '../../models/LedgerBlock.js';
 export const getEntityHistory = async (req, res, next) => {
   try {
     const { type, id } = req.params;
-    
-    // Normalize type string to TitleCase if needed, but our events use literal strings like 'Organ', 'Match'.
-    // Let's assume the client passes the exact entityType or we can capitalize it.
     const entityType = type.charAt(0).toUpperCase() + type.slice(1);
-    
     const adapter = getBlockchainAdapter();
     const history = await adapter.getHistory(entityType, id);
-    
     res.status(200).json(history);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getAllBlocks = async (req, res, next) => {
+  try {
+    const blocks = await LedgerBlock.find().sort({ blockIndex: -1 }).limit(100);
+    res.status(200).json(blocks);
   } catch (error) {
     next(error);
   }

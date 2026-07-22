@@ -37,6 +37,8 @@ export const getOrgans = () => fetchApi('/organs');
 export const getMissions = () => fetchApi('/transport/missions');
 export const verifyLedger = () => fetchApi('/audit/verify');
 export const getEntityHistory = (type, id) => fetchApi(`/audit/entity/${type}/${id}`);
+export const getAllBlocks = () => fetchApi('/audit/blocks');
+export const verifyBlock = (blockIndex) => fetchApi(`/audit/verify-block/${blockIndex}`);
 
 export const getMatches = () => fetchApi('/matching');
 
