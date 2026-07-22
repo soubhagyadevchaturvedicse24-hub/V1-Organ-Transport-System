@@ -105,15 +105,34 @@ const severityConfig = {
   info:     { cls: styles.alertInfo,     Icon: Info,          color: 'var(--status-idle)'     },
 };
 
-/* ─── 7-day activity mock generator ─────────────────────────────── */
-const generateActivityData = (missionsCount, donorsCount, organsCount) => {
-  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  return days.map((day, i) => ({
-    day,
-    Missions: Math.max(1, Math.round((missionsCount || 3) * (0.5 + Math.sin(i * 0.9) * 0.4 + Math.random() * 0.2))),
-    Donors:   Math.max(1, Math.round((donorsCount   || 4) * (0.6 + Math.cos(i * 0.7) * 0.3 + Math.random() * 0.2))),
-    Organs:   Math.max(1, Math.round((organsCount   || 2) * (0.4 + Math.sin(i * 1.1) * 0.5 + Math.random() * 0.2))),
-  }));
+/* ─── 7-day activity real data generator ──────────────────────────── */
+const generateRealActivityData = (blocks) => {
+  const last7Days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (6 - i));
+    return {
+      date: d,
+      day: d.toLocaleDateString('en-US', { weekday: 'short' }),
+      Missions: 0,
+      Donors: 0,
+      Organs: 0,
+    };
+  });
+
+  if (Array.isArray(blocks)) {
+    blocks.forEach(b => {
+      if (!b.timestamp) return;
+      const d = new Date(b.timestamp);
+      const dayMatch = last7Days.find(x => x.date.getDate() === d.getDate() && x.date.getMonth() === d.getMonth() && x.date.getFullYear() === d.getFullYear());
+      if (dayMatch) {
+        const typeStr = `${b.entityType || ''} ${b.eventType || ''}`.toUpperCase();
+        if (typeStr.includes('TRANSPORT') || typeStr.includes('MISSION') || typeStr.includes('TELEMETRY')) dayMatch.Missions++;
+        else if (typeStr.includes('DONOR')) dayMatch.Donors++;
+        else if (typeStr.includes('ORGAN')) dayMatch.Organs++;
+      }
+    });
+  }
+  return last7Days;
 };
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -163,12 +182,7 @@ const ExecutiveOverview = () => {
           status: statusMap[k] || k,
           count: v,
         }));
-        setOrganStatusData(organStatusArr.length > 0 ? organStatusArr : [
-          { status: 'Awaiting', count: 2 },
-          { status: 'Allocated', count: 1 },
-          { status: 'In Transit', count: 1 },
-          { status: 'Transplanted', count: 1 },
-        ]);
+        setOrganStatusData(organStatusArr);
 
         // --- Organ Type Donut ---
         const typeCounts = organList.reduce((acc, o) => {
@@ -177,12 +191,7 @@ const ExecutiveOverview = () => {
           return acc;
         }, {});
         const organTypeArr = Object.entries(typeCounts).map(([name, value]) => ({ name, value }));
-        setOrganTypeData(organTypeArr.length > 0 ? organTypeArr : [
-          { name: 'KIDNEY', value: 3 },
-          { name: 'LIVER', value: 2 },
-          { name: 'HEART', value: 1 },
-          { name: 'LUNG', value: 1 },
-        ]);
+        setOrganTypeData(organTypeArr);
 
         // --- Mission Status Radial ---
         const missionList = missions.status === 'fulfilled' ? (Array.isArray(missions.value) ? missions.value : missions.value?.missions || []) : [];
@@ -191,31 +200,27 @@ const ExecutiveOverview = () => {
           return acc;
         }, {});
         setMissionStatusData([
-          { name: 'Completed',  value: mStatusCounts['COMPLETED'] || 1,   fill: '#22d3a0' },
-          { name: 'In Transit', value: mStatusCounts['IN_TRANSIT'] || 1,  fill: '#60a5fa' },
-          { name: 'Pending',    value: mStatusCounts['PENDING'] || 1,     fill: '#fbbf24' },
+          { name: 'Completed',  value: mStatusCounts['COMPLETED'] || 0,   fill: '#22d3a0' },
+          { name: 'In Transit', value: mStatusCounts['IN_TRANSIT'] || 0,  fill: '#60a5fa' },
+          { name: 'Pending',    value: mStatusCounts['PENDING'] || 0,     fill: '#fbbf24' },
           { name: 'Cancelled',  value: mStatusCounts['CANCELLED'] || 0,   fill: '#f87171' },
-        ]);
+        ].filter(d => d.value > 0));
 
         // --- 7-Day Activity Area Chart ---
-        setActivityData(generateActivityData(k.missionsCount, k.donorsCount, k.organsCount));
+        const blockList = blocks.status === 'fulfilled' ? (Array.isArray(blocks.value) ? blocks.value : []) : [];
+        setActivityData(generateRealActivityData(blockList));
 
         // --- Block growth trend (last 7 blocks grouped) ---
-        const blockList = blocks.status === 'fulfilled' ? (Array.isArray(blocks.value) ? blocks.value : []) : [];
         if (blockList.length > 0) {
-          const step = Math.max(1, Math.floor(blockList.length / 7));
-          const trend = Array.from({ length: Math.min(7, blockList.length) }, (_, i) => ({
-            block: `#${i * step}`,
-            Blocks: (i + 1) * step,
+          const sortedBlocks = [...blockList].sort((a, b) => (a.blockIndex ?? 0) - (b.blockIndex ?? 0));
+          const step = Math.max(1, Math.floor(sortedBlocks.length / 8));
+          const trend = sortedBlocks.filter((_, i) => i % step === 0 || i === sortedBlocks.length - 1).map(b => ({
+            block: `#${b.blockIndex}`,
+            Blocks: (b.blockIndex ?? 0) + 1,
           }));
           setBlockTrend(trend);
         } else {
-          setBlockTrend([
-            { block: '#0', Blocks: 2 }, { block: '#2', Blocks: 5 },
-            { block: '#4', Blocks: 8 }, { block: '#6', Blocks: 12 },
-            { block: '#8', Blocks: 15 }, { block: '#10', Blocks: 18 },
-            { block: '#12', Blocks: 22 },
-          ]);
+          setBlockTrend([]);
         }
 
         // --- Timeline from recent missions ---

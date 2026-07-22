@@ -330,19 +330,51 @@ const TransportMap = () => {
               <h3>RFID Custody Chain</h3>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.75rem' }}>
-              {[
-                { time: '10:15 AM', event: 'Dispatch Handover Verified', courier: 'Courier #402 (RFID Tag Verified)', status: 'COMPLETED' },
-                { time: '11:40 AM', event: 'Mid-Transit Custody Check', courier: 'Green Corridor Transit Van', status: 'COMPLETED' },
-                { time: 'In Progress', event: 'Recipient Hospital Handshake', courier: 'Receiving Surgical Team', status: 'PENDING' },
-              ].map((evt, idx) => (
-                <div key={idx} style={{ display: 'flex', gap: '8px', padding: '6px 8px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px', borderLeft: evt.status === 'COMPLETED' ? '3px solid #22d3a0' : '3px solid #fbbf24' }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{evt.event}</div>
-                    <div style={{ color: 'var(--text-tertiary)', fontSize: '0.68rem' }}>{evt.courier}</div>
+              {(() => {
+                const events = [];
+                const t0 = new Date(mission.createdAt || Date.now());
+                
+                events.push({
+                  time: t0.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                  event: 'Mission Created & Allocated',
+                  courier: 'Platform Automated System',
+                  status: 'COMPLETED'
+                });
+
+                if (mission.status === 'IN_TRANSIT' || mission.status === 'COMPLETED') {
+                  const t1 = new Date(mission.updatedAt || Date.now());
+                  events.push({
+                    time: t1.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    event: 'Dispatch Handover Verified',
+                    courier: 'Transport Team (RFID Tag Verified)',
+                    status: 'COMPLETED'
+                  });
+                } else {
+                  events.push({ time: 'Pending', event: 'Dispatch Handover', courier: 'Transport Team', status: 'PENDING' });
+                }
+
+                if (mission.status === 'COMPLETED') {
+                  const t2 = new Date(mission.updatedAt || Date.now());
+                  events.push({
+                    time: t2.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    event: 'Recipient Handshake Verified',
+                    courier: 'Receiving Surgical Team',
+                    status: 'COMPLETED'
+                  });
+                } else {
+                  events.push({ time: 'In Progress', event: 'Recipient Handshake', courier: 'Receiving Surgical Team', status: 'PENDING' });
+                }
+
+                return events.map((evt, idx) => (
+                  <div key={idx} style={{ display: 'flex', gap: '8px', padding: '6px 8px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px', borderLeft: evt.status === 'COMPLETED' ? '3px solid #22d3a0' : '3px solid #fbbf24' }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{evt.event}</div>
+                      <div style={{ color: 'var(--text-tertiary)', fontSize: '0.68rem' }}>{evt.courier}</div>
+                    </div>
+                    <span className="mono" style={{ fontSize: '0.68rem', color: evt.status === 'COMPLETED' ? '#22d3a0' : '#fbbf24' }}>{evt.time}</span>
                   </div>
-                  <span className="mono" style={{ fontSize: '0.68rem', color: evt.status === 'COMPLETED' ? '#22d3a0' : '#fbbf24' }}>{evt.time}</span>
-                </div>
-              ))}
+                ));
+              })()}
             </div>
           </div>
 

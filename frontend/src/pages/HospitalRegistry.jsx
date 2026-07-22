@@ -7,33 +7,32 @@ import {
 import { getHospitals } from '../services/api';
 import styles from './HospitalRegistry.module.css';
 
-/* Heuristic permit expiry calculation */
-const getPermitExpiry = (hospital, idx) => {
-  // Generate deterministic days remaining based on hospital name/ID length
-  const hash = ((hospital.name || hospital.hospitalId || '').length * 37 + idx * 43) % 365;
-  const daysRemaining = hash - 60; // range -60 to 305
-  return daysRemaining;
+/* Calculate real capability score */
+const getCapabilityScore = (hospital) => {
+  const caps = hospital.transplantCapabilities || [];
+  return caps.length;
 };
 
-const getComplianceStatus = (days) => {
-  if (days <= 0)  return { status: 'EXPIRED',     label: 'Permit Expired', color: '#f87171', bg: 'rgba(248,113,113,0.12)', Icon: XCircle     };
-  if (days <= 60) return { status: 'RENEWAL_DUE', label: 'Renewal Due',   color: '#fbbf24', bg: 'rgba(251,191,36,0.12)',  Icon: Clock       };
-  return             { status: 'ACTIVE',      label: 'Compliant',     color: '#22d3a0', bg: 'rgba(34,211,160,0.12)',  Icon: CheckCircle2 };
+const getComplianceStatus = (hospital) => {
+  const s = hospital.status;
+  if (s === 'ACTIVE' || s === 'APPROVED') return { status: 'ACTIVE', label: 'Compliant', color: '#22d3a0', bg: 'rgba(34,211,160,0.12)', Icon: CheckCircle2 };
+  if (s === 'SUSPENDED' || s === 'REJECTED' || s === 'DEACTIVATED') return { status: 'EXPIRED', label: 'Suspended/Expired', color: '#f87171', bg: 'rgba(248,113,113,0.12)', Icon: XCircle };
+  return { status: 'RENEWAL_DUE', label: 'Pending Review', color: '#fbbf24', bg: 'rgba(251,191,36,0.12)', Icon: Clock };
 };
 
-/* SVG Circular Countdown Ring */
-const RadialProgress = ({ daysRemaining }) => {
-  const maxDays = 365;
-  const clamped = Math.max(0, Math.min(daysRemaining, maxDays));
-  const percent = Math.round((clamped / maxDays) * 100);
+/* SVG Circular Capability Ring */
+const RadialProgress = ({ score }) => {
+  const maxScore = 7;
+  const clamped = Math.max(0, Math.min(score, maxScore));
+  const percent = maxScore === 0 ? 0 : Math.round((clamped / maxScore) * 100);
   const radius = 22;
   const circ = 2 * Math.PI * radius;
   const strokeDashoffset = circ - (percent / 100) * circ;
 
-  const color = daysRemaining <= 0 ? '#f87171' : daysRemaining <= 60 ? '#fbbf24' : '#22d3a0';
+  const color = percent === 0 ? '#64748b' : percent < 30 ? '#f87171' : percent < 70 ? '#fbbf24' : '#22d3a0';
 
   return (
-    <div className={styles.radialWrapper}>
+    <div className={styles.radialWrapper} title={`${clamped} out of ${maxScore} capabilities`}>
       <svg width="56" height="56" viewBox="0 0 56 56">
         <circle cx="28" cy="28" r={radius} stroke="rgba(255,255,255,0.06)" strokeWidth="4" fill="none" />
         <circle
@@ -47,16 +46,16 @@ const RadialProgress = ({ daysRemaining }) => {
         />
       </svg>
       <div className={styles.radialText} style={{ color }}>
-        <span className={styles.radialDays}>{daysRemaining <= 0 ? '0' : daysRemaining}</span>
-        <span className={styles.radialUnit}>days</span>
+        <span className={styles.radialDays}>{clamped}</span>
+        <span className={styles.radialUnit}>caps</span>
       </div>
     </div>
   );
 };
 
-const HospitalCard = ({ hospital, idx }) => {
-  const days = getPermitExpiry(hospital, idx);
-  const cfg = getComplianceStatus(days);
+const HospitalCard = ({ hospital }) => {
+  const score = getCapabilityScore(hospital);
+  const cfg = getComplianceStatus(hospital);
   const StatusIcon = cfg.Icon;
 
   const certType = hospital.type || (idx % 3 === 0 ? 'Autonomous / Central AIIMS' : idx % 2 === 0 ? 'State Govt Hospital' : 'Empaneled Private Super-Specialty');
@@ -84,7 +83,7 @@ const HospitalCard = ({ hospital, idx }) => {
           </div>
         </div>
 
-        <RadialProgress daysRemaining={days} />
+        <RadialProgress score={score} />
       </div>
 
       <div className={styles.cardBody}>
@@ -94,7 +93,7 @@ const HospitalCard = ({ hospital, idx }) => {
             <StatusIcon size={13} />
             {cfg.label}
           </div>
-          <span className={styles.regId}>THOTA Reg ID: <strong className="mono">{`REG-${hospital.hospitalId?.slice(-6).toUpperCase() || idx + 100}`}</strong></span>
+          <span className={styles.regId}>THOTA Reg ID: <strong className="mono">{`REG-${hospital.hospitalId?.slice(-6).toUpperCase() || '000000'}`}</strong></span>
         </div>
 
         {/* Statutory Checklist */}
@@ -108,7 +107,7 @@ const HospitalCard = ({ hospital, idx }) => {
             <span>Section 15 Inspection Clearance</span>
           </div>
           <div className={styles.checkItem}>
-            <ShieldCheck size={13} style={{ color: days > 0 ? '#22d3a0' : '#f87171' }} />
+            <ShieldCheck size={13} style={{ color: cfg.status === 'ACTIVE' ? '#22d3a0' : '#f87171' }} />
             <span>Transplant Committee Constituted (Rule 7)</span>
           </div>
         </div>
@@ -121,7 +120,7 @@ const HospitalRegistry = () => {
   const [hospitals, setHospitals] = useState([]);
   const [loading, setLoading]     = useState(true);
   const [search, setSearch]       = useState('');
-  const [filter, setFilter]       = useState('ALL');
+  const [filter, setFilter]       = useState('All');
 
   useEffect(() => {
     getHospitals()
@@ -133,20 +132,22 @@ const HospitalRegistry = () => {
       .finally(() => setLoading(false));
   }, []);
 
-  const counts = hospitals.reduce((acc, h, i) => {
-    const days = getPermitExpiry(h, i);
-    const s = getComplianceStatus(days).status;
-    acc[s] = (acc[s] || 0) + 1;
-    return acc;
-  }, {});
+  const stats = {
+    total: hospitals.length,
+    compliant: hospitals.filter(h => getComplianceStatus(h).status === 'ACTIVE').length,
+    renewal: hospitals.filter(h => getComplianceStatus(h).status === 'RENEWAL_DUE').length,
+    expired: hospitals.filter(h => getComplianceStatus(h).status === 'EXPIRED').length,
+  };
 
-  const filtered = hospitals.filter((h, i) => {
-    const name = (h.name || h.city || '').toLowerCase();
-    const days = getPermitExpiry(h, i);
-    const status = getComplianceStatus(days).status;
-    const matchSearch = name.includes(search.toLowerCase());
-    const matchFilter = filter === 'ALL' || status === filter;
-    return matchSearch && matchFilter;
+  const filteredHospitals = hospitals.filter(h => {
+    if (search && !h.name?.toLowerCase().includes(search.toLowerCase())) return false;
+    if (filter !== 'All') {
+      const st = getComplianceStatus(h).status;
+      if (filter === 'Compliant' && st !== 'ACTIVE') return false;
+      if (filter === 'Renewal Due' && st !== 'RENEWAL_DUE') return false;
+      if (filter === 'Expired' && st !== 'EXPIRED') return false;
+    }
+    return true;
   });
 
   return (
@@ -166,10 +167,10 @@ const HospitalRegistry = () => {
       {/* KPI Cards */}
       <div className={styles.kpiRow}>
         {[
-          { label: 'Registered Hospitals', value: hospitals.length,               color: '#60a5fa' },
-          { label: 'Fully Compliant',      value: counts.ACTIVE || 0,             color: '#22d3a0' },
-          { label: 'Renewal Due (<60d)',   value: counts.RENEWAL_DUE || 0,        color: '#fbbf24' },
-          { label: 'Expired Permits',      value: counts.EXPIRED || 0,            color: '#f87171' },
+          { label: 'Registered Hospitals', value: stats.total, color: '#60a5fa' },
+          { label: 'Fully Compliant', value: stats.compliant, color: '#22d3a0' },
+          { label: 'Renewal Due', value: stats.renewal, color: '#fbbf24' },
+          { label: 'Expired Permits', value: stats.expired, color: '#f87171' },
         ].map((k, i) => (
           <motion.div
             key={k.label}
@@ -198,13 +199,13 @@ const HospitalRegistry = () => {
           />
         </div>
         <div className={styles.filterBtns}>
-          {['ALL', 'ACTIVE', 'RENEWAL_DUE', 'EXPIRED'].map(f => (
+          {['All', 'Compliant', 'Renewal Due', 'Expired'].map(f => (
             <button
               key={f}
               className={`${styles.filterBtn} ${filter === f ? styles.filterActive : ''}`}
               onClick={() => setFilter(f)}
             >
-              {f === 'ALL' ? 'All Statuses' : f === 'ACTIVE' ? 'Compliant' : f === 'RENEWAL_DUE' ? 'Renewal Due' : 'Expired'}
+              {f}
             </button>
           ))}
         </div>
@@ -216,15 +217,15 @@ const HospitalRegistry = () => {
           <div className={styles.loadingSpinner} />
           <span>Loading hospital registry…</span>
         </div>
-      ) : filtered.length === 0 ? (
+      ) : filteredHospitals.length === 0 ? (
         <div className={styles.emptyState}>
           <Building2 size={48} style={{ color: 'var(--text-muted)', marginBottom: '12px' }} />
           <h3>No registered hospitals match</h3>
         </div>
       ) : (
         <div className={styles.grid}>
-          {filtered.map((h, i) => (
-            <HospitalCard key={h._id || h.hospitalId || i} hospital={h} idx={i} />
+          {filteredHospitals.map((hospital, idx) => (
+            <HospitalCard key={hospital._id || hospital.hospitalId || idx} hospital={hospital} />
           ))}
         </div>
       )}

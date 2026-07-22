@@ -155,48 +155,51 @@ const CommitteeCard = ({ app, idx, onDecision }) => {
 };
 
 const CommitteeApproval = () => {
-  const [applications, setApplications] = useState([
-    {
-      id: 'APP-8091',
-      organType: 'Kidney',
-      donorName: 'Ramesh Kumar (Father)',
-      recipientName: 'Amit Kumar (Son)',
-      hospital: 'AIIMS New Delhi',
-      relationship: 'Near Relative (S.9(1))',
-      status: 'UNDER_REVIEW',
-    },
-    {
-      id: 'APP-8092',
-      organType: 'Liver (Segment)',
-      donorName: 'Priya Sharma (Spouse)',
-      recipientName: 'Vikram Sharma (Spouse)',
-      hospital: 'Apollo Hospital Chennai',
-      relationship: 'Spouse (S.9(1))',
-      status: 'UNDER_REVIEW',
-    },
-    {
-      id: 'APP-8044',
-      organType: 'Kidney',
-      donorName: 'Sunita Devi (Mother)',
-      recipientName: 'Neha Devi (Daughter)',
-      hospital: 'PGIMER Chandigarh',
-      relationship: 'Near Relative (S.9(1))',
-      status: 'APPROVED',
-      notes: 'Form 10 verified. All medical clearances passed under Section 9(1). Approved unanimously.',
-    },
-  ]);
-  const [filter, setFilter] = useState('ALL');
+  const [applications, setApplications] = useState([]);
+  const [filter, setFilter] = useState('All Cases');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getMatches().then(data => {
+      const flatApps = [];
+      if (Array.isArray(data)) {
+        data.forEach(match => {
+          if (match.recommendedRecipients) {
+            match.recommendedRecipients.forEach(rec => {
+              flatApps.push({
+                id: `${match._id}-${rec.recipientId?._id}`,
+                matchId: match._id,
+                recipientDbId: rec.recipientId?._id,
+                organType: match.organId?.organType || 'Organ',
+                donorName: match.organId?.donorId || 'Platform Donor',
+                recipientName: rec.recipientId?.recipientId || 'Platform Recipient',
+                hospital: 'Registered Hospital',
+                relationship: 'AI System Match',
+                status: rec.status === 'ACCEPTED' ? 'APPROVED' : rec.status === 'REJECTED' ? 'REJECTED' : 'UNDER_REVIEW',
+                notes: ''
+              });
+            });
+          }
+        });
+      }
+      setApplications(flatApps);
+    }).finally(() => setLoading(false));
+  }, []);
 
   const handleDecision = (appId, verdict, notes) => {
-    setApplications(prev => prev.map(a => {
-      if (a.id === appId) {
-        return { ...a, status: verdict, notes: notes || 'Committee clearance logged to ledger.' };
-      }
-      return a;
-    }));
+    setApplications(prev => prev.map(app =>
+      app.id === appId ? { ...app, status: verdict, notes } : app
+    ));
+    // In a real app, we would call an API here to persist the decision
   };
 
-  const filtered = applications.filter(a => filter === 'ALL' || a.status === filter);
+  const filteredApps = applications.filter(a => {
+    if (filter === 'All Cases') return true;
+    if (filter === 'Pending Vetting') return a.status === 'UNDER_REVIEW';
+    if (filter === 'Approved') return a.status === 'APPROVED';
+    if (filter === 'Rejected') return a.status === 'REJECTED';
+    return true;
+  });
 
   return (
     <div className="page-container">
@@ -223,24 +226,32 @@ const CommitteeApproval = () => {
       {/* Toolbar / Filters */}
       <div className={styles.toolbar}>
         <div className={styles.filterBtns}>
-          {['ALL', 'UNDER_REVIEW', 'APPROVED', 'REJECTED'].map(f => (
+          {['All Cases', 'Pending Vetting', 'Approved', 'Rejected'].map(f => (
             <button
               key={f}
               className={`${styles.filterBtn} ${filter === f ? styles.filterActive : ''}`}
               onClick={() => setFilter(f)}
             >
-              {f === 'ALL' ? 'All Cases' : f === 'UNDER_REVIEW' ? 'Pending Vetting' : f === 'APPROVED' ? 'Approved' : 'Rejected'}
+              {f}
             </button>
           ))}
         </div>
       </div>
 
       {/* Applications List */}
-      <div className={styles.appList}>
-        {filtered.map((app, i) => (
-          <CommitteeCard key={app.id} app={app} idx={i} onDecision={handleDecision} />
-        ))}
-      </div>
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>Loading applications...</div>
+      ) : filteredApps.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>No applications found.</div>
+      ) : (
+        <div className={styles.appList}>
+          <AnimatePresence>
+            {filteredApps.map((app, idx) => (
+              <CommitteeCard key={app.id} app={app} idx={idx} onDecision={handleDecision} />
+            ))}
+          </AnimatePresence>
+        </div>
+      )}
     </div>
   );
 };
