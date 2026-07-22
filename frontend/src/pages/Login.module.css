@@ -3,38 +3,23 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
-  font-family: 'Inter', sans-serif;
+  background: radial-gradient(circle at top right, #1e1b4b 0%, #0f172a 50%, #050508 100%);
+  font-family: 'Inter', system-ui, sans-serif;
   color: white;
-  position: relative;
-  overflow: hidden;
-}
-
-.loginContainer::before {
-  content: '';
-  position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: radial-gradient(circle at center, rgba(236, 72, 153, 0.1) 0%, transparent 50%);
-  pointer-events: none;
-  z-index: 0;
+  padding: 2rem 1rem;
 }
 
 .contentWrapper {
-  z-index: 10;
   width: 100%;
-  max-width: 1000px;
-  padding: 2rem;
+  max-width: 1100px;
   display: flex;
   flex-direction: column;
   align-items: center;
+  gap: 2.5rem;
 }
 
 .header {
   text-align: center;
-  margin-bottom: 3rem;
 }
 
 .logo {
@@ -42,9 +27,9 @@
   align-items: center;
   justify-content: center;
   gap: 0.75rem;
-  font-size: 2rem;
-  font-weight: 700;
-  margin-bottom: 1rem;
+  font-size: 2.25rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
 
 .logoIcon {
@@ -53,69 +38,247 @@
 
 .subtitle {
   color: #94a3b8;
-  font-size: 1.1rem;
+  font-size: 1.05rem;
+  margin-top: 0.5rem;
 }
 
-.rolesGrid {
+.mainGrid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: 1fr 1fr;
   gap: 2rem;
   width: 100%;
 }
 
-.roleCard {
-  background: rgba(15, 23, 42, 0.6);
+/* Form Card */
+.formCard {
+  background: rgba(15, 23, 42, 0.7);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 20px;
-  padding: 2.5rem 2rem;
-  text-align: center;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  backdrop-filter: blur(10px);
+  border-radius: 24px;
+  padding: 2.5rem;
+  backdrop-filter: blur(16px);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
   display: flex;
   flex-direction: column;
+  gap: 1.5rem;
+}
+
+.formHeader h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 0.35rem;
+}
+
+.formHeader p {
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+
+.errorAlert {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #f87171;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  font-size: 0.875rem;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.inputGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.inputGroup label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #cbd5e1;
+}
+
+.inputWrapper {
+  position: relative;
+  display: flex;
   align-items: center;
 }
 
-.roleCard:hover {
-  transform: translateY(-10px);
-  border-color: #8b5cf6;
-  box-shadow: 0 20px 40px rgba(139, 92, 246, 0.2);
-  background: rgba(30, 27, 75, 0.8);
+.inputIcon {
+  position: absolute;
+  left: 1rem;
+  color: #64748b;
 }
 
-.roleIcon {
-  width: 70px;
-  height: 70px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.05);
+.inputWrapper input {
+  width: 100%;
+  background: rgba(5, 5, 8, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 0.85rem 1rem 0.85rem 2.8rem;
+  color: white;
+  font-size: 0.95rem;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.inputWrapper input:focus {
+  border-color: #8b5cf6;
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.25);
+}
+
+.btnLogin {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 1.5rem;
-  transition: all 0.3s ease;
-}
-
-.roleCard:hover .roleIcon {
-  background: linear-gradient(135deg, #ec4899, #8b5cf6);
-  color: white !important;
-}
-
-.roleTitle {
-  font-size: 1.25rem;
+  gap: 0.6rem;
+  background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  padding: 1rem;
+  font-size: 1rem;
   font-weight: 600;
-  margin-bottom: 0.75rem;
+  cursor: pointer;
+  margin-top: 0.5rem;
+  transition: all 0.2s ease;
+  box-shadow: 0 10px 25px rgba(139, 92, 246, 0.3);
 }
 
-.roleDesc {
+.btnLogin:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 15px 30px rgba(139, 92, 246, 0.45);
+}
+
+.btnLogin:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Demo Roles Card */
+.demoRolesCard {
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+  padding: 2rem;
+  backdrop-filter: blur(12px);
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.demoHeader h3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+
+.demoHeader p {
   color: #94a3b8;
-  font-size: 0.9rem;
-  line-height: 1.5;
+  font-size: 0.85rem;
 }
 
-@media (max-width: 900px) {
-  .rolesGrid {
-    grid-template-columns: repeat(1, 1fr);
-    max-width: 400px;
+.roleList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.roleItem {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 1rem 1.1rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.roleItem:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateX(4px);
+}
+
+.selectedRole {
+  background: rgba(139, 92, 246, 0.12) !important;
+  border-color: rgba(139, 92, 246, 0.4) !important;
+}
+
+.roleIconBadge {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.roleDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1;
+}
+
+.roleTitleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.roleName {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: #f8fafc;
+}
+
+.activeTag {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  background: rgba(139, 92, 246, 0.2);
+  color: #c084fc;
+  padding: 2px 8px;
+  border-radius: 20px;
+}
+
+.credentialText {
+  font-size: 0.8rem;
+  color: #cbd5e1;
+}
+
+.credentialText code {
+  font-family: monospace;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 1px 5px;
+  border-radius: 4px;
+  color: #a7f3d0;
+}
+
+.roleDescription {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  margin-top: 0.2rem;
+}
+
+@media (max-width: 850px) {
+  .mainGrid {
+    grid-template-columns: 1fr;
   }
 }
