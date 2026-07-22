@@ -64,13 +64,13 @@ const DashboardLayout = () => {
       {/* Floating Global Toast Notifications */}
       <div style={{
         position: 'fixed',
-        top: '24px',
+        top: '20px',
         right: '24px',
         zIndex: 99999,
         display: 'flex',
         flexDirection: 'column',
-        gap: '12px',
-        maxWidth: '380px',
+        gap: '10px',
+        maxWidth: '320px',
         width: '100%',
         pointerEvents: 'none'
       }}>
@@ -88,33 +88,36 @@ const DashboardLayout = () => {
                   display: 'flex',
                   alignItems: 'flex-start',
                   gap: '12px',
-                  background: isCritical ? 'rgba(239, 68, 68, 0.95)' : 'rgba(245, 158, 11, 0.95)',
-                  backdropFilter: 'blur(8px)',
-                  border: isCritical ? '1px solid #ef4444' : '1px solid #f59e0b',
+                  background: isCritical ? 'rgba(239, 68, 68, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                  backdropFilter: 'blur(12px)',
+                  border: isCritical ? '1px solid rgba(239, 68, 68, 0.5)' : '1px solid rgba(245, 158, 11, 0.5)',
                   borderRadius: '12px',
-                  padding: '16px',
-                  boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 0 15px ' + (isCritical ? 'rgba(239, 68, 68, 0.4)' : 'rgba(245, 158, 11, 0.4)'),
+                  padding: '12px 16px',
+                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
                   color: '#ffffff',
                   fontFamily: 'Inter, sans-serif'
                 }}
               >
-                <AlertTriangle size={18} style={{ flexShrink: 0, marginTop: '2px' }} />
-                <div style={{ flex: 1, fontSize: '0.875rem', fontWeight: 500, lineOpacity: 1, lineHeight: 1.4 }}>
+                <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: '2px', color: isCritical ? '#ef4444' : '#f59e0b' }} />
+                <div style={{ flex: 1, fontSize: '0.8rem', fontWeight: 500, lineHeight: 1.4 }}>
                   {toast.message}
                 </div>
                 <button
                   onClick={() => removeToast(toast.id)}
                   style={{
-                    color: 'rgba(255, 255, 255, 0.8)',
+                    color: 'rgba(255, 255, 255, 0.5)',
                     cursor: 'pointer',
                     marginTop: '2px',
                     transition: 'color 0.2s',
                     background: 'none',
                     border: 'none',
-                    outline: 'none'
+                    outline: 'none',
+                    padding: '2px'
                   }}
+                  onMouseOver={(e) => e.currentTarget.style.color = 'white'}
+                  onMouseOut={(e) => e.currentTarget.style.color = 'rgba(255, 255, 255, 0.5)'}
                 >
-                  <X size={16} />
+                  <X size={14} />
                 </button>
               </motion.div>
             );
@@ -312,6 +315,37 @@ const DashboardLayout = () => {
                   disabled={!sim.running}
                   style={{ cursor: 'pointer', width: '14px', height: '14px', accentColor: 'var(--brand-red)' }}
                 />
+              </div>
+            </div>
+
+            {/* Milestones Controls */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px', borderTop: '1px solid var(--glass-border)', paddingTop: '10px' }}>
+              <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Trigger Milestones</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                <button 
+                  onClick={() => sim.triggerMilestone('transport.created')}
+                  style={{ background: 'rgba(56, 189, 248, 0.1)', border: '1px solid rgba(56, 189, 248, 0.3)', color: '#38bdf8', padding: '6px', borderRadius: '6px', fontSize: '0.65rem', cursor: 'pointer', fontWeight: 600 }}
+                >
+                  CREATED
+                </button>
+                <button 
+                  onClick={() => sim.triggerMilestone('transport.dispatched')}
+                  style={{ background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.3)', color: '#10b981', padding: '6px', borderRadius: '6px', fontSize: '0.65rem', cursor: 'pointer', fontWeight: 600 }}
+                >
+                  DISPATCHED
+                </button>
+                <button 
+                  onClick={() => sim.triggerMilestone('transport.arrived')}
+                  style={{ background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.3)', color: '#f59e0b', padding: '6px', borderRadius: '6px', fontSize: '0.65rem', cursor: 'pointer', fontWeight: 600 }}
+                >
+                  ARRIVED
+                </button>
+                <button 
+                  onClick={() => sim.triggerMilestone('transport.completed')}
+                  style={{ background: 'rgba(139, 92, 246, 0.1)', border: '1px solid rgba(139, 92, 246, 0.3)', color: '#8b5cf6', padding: '6px', borderRadius: '6px', fontSize: '0.65rem', cursor: 'pointer', fontWeight: 600 }}
+                >
+                  COMPLETED
+                </button>
               </div>
             </div>
 
