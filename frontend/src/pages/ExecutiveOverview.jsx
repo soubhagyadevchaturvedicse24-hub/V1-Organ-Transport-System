@@ -29,6 +29,12 @@ const AnimatedNumber = ({ value }) => {
 /* ── KPI card ── */
 const KpiCard = ({ card, idx }) => {
   const Icon = card.icon;
+  // Calculate fill percentage for ring
+  const maxRef = card.maxRef || 20;
+  const pct = Math.min(100, Math.max(15, Math.round((Number(card.value) / maxRef) * 100)));
+  const circ = 2 * Math.PI * 26;
+  const offset = circ - (pct / 100) * circ;
+
   return (
     <motion.div
       className={styles.kpiCard}
@@ -39,7 +45,24 @@ const KpiCard = ({ card, idx }) => {
     >
       <div className={styles.kpiGlow} />
       <div className={styles.kpiTop}>
-        <div className={styles.kpiIcon}><Icon size={20} /></div>
+        <div style={{ position: 'relative', width: 60, height: 60, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <svg width="60" height="60" viewBox="0 0 60 60" style={{ position: 'absolute', inset: 0 }}>
+            <circle cx="30" cy="30" r="26" stroke="rgba(255,255,255,0.06)" strokeWidth="3.5" fill="none" />
+            <motion.circle
+              cx="30" cy="30" r="26"
+              stroke={card.color} strokeWidth="3.5" fill="none"
+              strokeDasharray={circ}
+              initial={{ strokeDashoffset: circ }}
+              animate={{ strokeDashoffset: offset }}
+              transition={{ duration: 1.2, delay: idx * 0.1, ease: 'easeOut' }}
+              strokeLinecap="round"
+              transform="rotate(-90 30 30)"
+            />
+          </svg>
+          <div className={styles.kpiIcon} style={{ position: 'relative', zIndex: 2 }}>
+            <Icon size={20} />
+          </div>
+        </div>
         {card.trend && (
           <span className={styles.kpiTrend}>
             <TrendingUp size={12} /> {card.trend}

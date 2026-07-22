@@ -52,6 +52,7 @@ const TransportMap = () => {
   const [mission, setMission] = useState(null);
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState(null);
+  const [tempHistory, setTempHistory] = useState([4.0, 4.1, 3.9, 4.2, 4.0, 4.3, 4.1]);
   const socket = useSocket();
 
   useEffect(() => {
@@ -107,6 +108,10 @@ const TransportMap = () => {
 
     socket.on('transport:telemetry', (payload) => {
       if (payload.missionId === mission._id) {
+        if (payload.temperature !== undefined) {
+          setTempHistory(prev => [...prev, payload.temperature].slice(-15));
+        }
+
         setMission(prev => {
           const lat = payload.location.coordinates[1];
           const lng = payload.location.coordinates[0];
@@ -247,6 +252,34 @@ const TransportMap = () => {
                 <motion.div className={styles.metricBarFill} style={{ background: telemetry.temperature > 8 ? 'var(--status-critical)' : 'var(--brand-blue)' }} animate={{ width: `${Math.min((telemetry.temperature / 12) * 100, 100)}%` }} transition={{ type: 'spring', stiffness: 80 }} />
               </div>
 
+              {/* Temperature Sparkline */}
+              <div style={{ marginTop: '8px', padding: '6px', background: 'rgba(0,0,0,0.2)', borderRadius: '6px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.68rem', color: 'var(--text-tertiary)', marginBottom: '4px' }}>
+                  <span>Temp History (Live Sparkline)</span>
+                  <span className="mono">{telemetry.temperature}°C</span>
+                </div>
+                <svg width="100%" height="28" viewBox="0 0 150 28" style={{ overflow: 'visible' }}>
+                  {(() => {
+                    const minT = 0, maxT = 10;
+                    const pts = tempHistory.map((val, idx) => {
+                      const x = (idx / Math.max(1, tempHistory.length - 1)) * 150;
+                      const y = 28 - ((val - minT) / (maxT - minT)) * 28;
+                      return `${x},${Math.max(2, Math.min(26, y))}`;
+                    }).join(' ');
+                    return (
+                      <>
+                        <polyline points={pts} fill="none" stroke="var(--brand-blue)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        {tempHistory.map((val, idx) => {
+                          const x = (idx / Math.max(1, tempHistory.length - 1)) * 150;
+                          const y = 28 - ((val - minT) / (maxT - minT)) * 28;
+                          return <circle key={idx} cx={x} cy={Math.max(2, Math.min(26, y))} r="2.5" fill={val > 8 ? '#f87171' : 'var(--brand-green)'} />;
+                        })}
+                      </>
+                    );
+                  })()}
+                </svg>
+              </div>
+
               <div className={styles.metric}>
                 <div className={styles.metricLeft}>
                   <Battery size={16} style={{ color: telemetry.batteryLevel < 20 ? 'var(--status-critical)' : 'var(--brand-green)' }} />
@@ -287,6 +320,29 @@ const TransportMap = () => {
                 <div className={styles.routeDot} style={{ background:'#a78bfa' }} />
                 <div><div className={styles.routeLabel}>Destination</div><div className={styles.routeName}>{dest.name}</div></div>
               </div>
+            </div>
+          </div>
+
+          {/* RFID Chain of Custody Timeline */}
+          <div className={`glass-panel ${styles.card}`}>
+            <div className={styles.cardHead}>
+              <Activity size={16} style={{ color:'var(--brand-amber)' }} />
+              <h3>RFID Custody Chain</h3>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.75rem' }}>
+              {[
+                { time: '10:15 AM', event: 'Dispatch Handover Verified', courier: 'Courier #402 (RFID Tag Verified)', status: 'COMPLETED' },
+                { time: '11:40 AM', event: 'Mid-Transit Custody Check', courier: 'Green Corridor Transit Van', status: 'COMPLETED' },
+                { time: 'In Progress', event: 'Recipient Hospital Handshake', courier: 'Receiving Surgical Team', status: 'PENDING' },
+              ].map((evt, idx) => (
+                <div key={idx} style={{ display: 'flex', gap: '8px', padding: '6px 8px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px', borderLeft: evt.status === 'COMPLETED' ? '3px solid #22d3a0' : '3px solid #fbbf24' }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{evt.event}</div>
+                    <div style={{ color: 'var(--text-tertiary)', fontSize: '0.68rem' }}>{evt.courier}</div>
+                  </div>
+                  <span className="mono" style={{ fontSize: '0.68rem', color: evt.status === 'COMPLETED' ? '#22d3a0' : '#fbbf24' }}>{evt.time}</span>
+                </div>
+              ))}
             </div>
           </div>
 

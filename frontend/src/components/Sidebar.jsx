@@ -1,19 +1,27 @@
+import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, GitFork, Map, ShieldCheck, HeartPulse, Cpu, LogOut } from 'lucide-react';
+import {
+  LayoutDashboard, GitFork, Map, ShieldCheck, HeartPulse,
+  Cpu, LogOut, FileCheck, Building2, Scale, ChevronLeft, ChevronRight
+} from 'lucide-react';
 import styles from './Sidebar.module.css';
 import { useAuth } from '../context/AuthContext';
 
 const ALL_LINKS = [
-  { name: 'Command Center', path: '/dashboard/overview', icon: LayoutDashboard, section: 'Operations', roles: ['PLATFORM_ADMIN', 'HOSPITAL_COORDINATOR'] },
-  { name: 'Matching Queue',  path: '/dashboard/matching', icon: GitFork,         section: null, roles: ['HOSPITAL_COORDINATOR'] },
-  { name: 'Live Transport',  path: '/dashboard/transport', icon: Map,            section: null, roles: ['COURIER', 'PLATFORM_ADMIN', 'HOSPITAL_COORDINATOR'] },
-  { name: 'Blockchain Audit',path: '/dashboard/audit',     icon: ShieldCheck,    section: 'Audit', roles: ['PLATFORM_ADMIN'] },
-  { name: 'IoT Simulator',   path: '/dashboard/simulator', icon: Cpu,            section: 'Tools', isSimulator: true, roles: ['PLATFORM_ADMIN'] },
+  { name: 'Command Center',     path: '/dashboard/overview',          icon: LayoutDashboard, section: 'Operations', roles: ['PLATFORM_ADMIN', 'HOSPITAL_COORDINATOR'] },
+  { name: 'Matching Queue',      path: '/dashboard/matching',          icon: GitFork,         section: null, roles: ['HOSPITAL_COORDINATOR'] },
+  { name: 'Live Transport',      path: '/dashboard/transport',         icon: Map,            section: null, roles: ['COURIER', 'PLATFORM_ADMIN', 'HOSPITAL_COORDINATOR'] },
+  { name: 'Donor Consent',       path: '/dashboard/donor-consent',     icon: FileCheck,       section: 'THOTA Legal', roles: ['PLATFORM_ADMIN', 'HOSPITAL_COORDINATOR'] },
+  { name: 'Hospital Compliance', path: '/dashboard/hospital-registry', icon: Building2,       section: null, roles: ['PLATFORM_ADMIN'] },
+  { name: 'Committee Approval',  path: '/dashboard/committee',         icon: Scale,           section: null, roles: ['PLATFORM_ADMIN', 'HOSPITAL_COORDINATOR'] },
+  { name: 'Blockchain Audit',    path: '/dashboard/audit',             icon: ShieldCheck,    section: 'Audit', roles: ['PLATFORM_ADMIN'] },
+  { name: 'IoT Simulator',       path: '/dashboard/simulator',         icon: Cpu,            section: 'Tools', isSimulator: true, roles: ['PLATFORM_ADMIN'] },
 ];
 
 const Sidebar = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [collapsed, setCollapsed] = useState(false);
   let lastSection = null;
 
   const handleLogout = () => {
@@ -25,23 +33,34 @@ const Sidebar = () => {
   const navLinks = ALL_LINKS.filter(link => link.roles.includes(user?.role));
 
   return (
-    <aside className={styles.sidebar}>
+    <aside className={`${styles.sidebar} ${collapsed ? styles.collapsed : ''}`}>
+      {/* Collapse Toggle Button */}
+      <button
+        className={styles.collapseBtn}
+        onClick={() => setCollapsed(c => !c)}
+        title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+      >
+        {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+      </button>
+
       {/* Logo */}
       <div className={styles.logoContainer}>
         <div className={styles.logoIconWrapper}>
           <HeartPulse size={22} />
         </div>
-        <div>
-          <h2 className={styles.logoText}>NeoLife</h2>
-          <span className={styles.logoSub}>Transplant Platform</span>
-        </div>
+        {!collapsed && (
+          <div>
+            <h2 className={styles.logoText}>NeoLife</h2>
+            <span className={styles.logoSub}>Transplant Platform</span>
+          </div>
+        )}
       </div>
 
       {/* Navigation */}
       <nav className={styles.nav}>
         {navLinks.map((link) => {
           const Icon = link.icon;
-          const showSection = link.section && link.section !== lastSection;
+          const showSection = !collapsed && link.section && link.section !== lastSection;
           lastSection = link.section ?? lastSection;
 
           return (
@@ -51,12 +70,13 @@ const Sidebar = () => {
               )}
               <NavLink
                 to={link.path}
+                title={collapsed ? link.name : undefined}
                 className={({ isActive }) =>
                   `${styles.navLink} ${isActive ? styles.active : ''} ${link.isSimulator ? styles.simulator : ''}`
                 }
               >
                 <span className={styles.navIcon}><Icon size={18} /></span>
-                <span>{link.name}</span>
+                {!collapsed && <span>{link.name}</span>}
               </NavLink>
             </div>
           );
@@ -67,10 +87,12 @@ const Sidebar = () => {
       <div className={styles.footer}>
         {user && (
           <div className={styles.userProfile} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <div className={styles.userInfo}>
-              <span className={styles.userName}>{user.displayName}</span>
-              <span className={styles.userRole}>{user.role?.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')}</span>
-            </div>
+            {!collapsed && (
+              <div className={styles.userInfo}>
+                <span className={styles.userName}>{user.displayName}</span>
+                <span className={styles.userRole}>{user.role?.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')}</span>
+              </div>
+            )}
             <button 
               className={styles.logoutBtn} 
               onClick={handleLogout} 
@@ -91,18 +113,23 @@ const Sidebar = () => {
                 fontWeight: '600'
               }}
             >
-              <LogOut size={14} /> LOGOUT
+              <LogOut size={14} /> {!collapsed && 'LOGOUT'}
             </button>
           </div>
         )}
-        <div className={styles.systemStatus}>
-          <span className="live-dot" />
-          <span>All Systems Nominal</span>
-        </div>
-        <span className={styles.version}>v1.0.0-dashboard</span>
+        {!collapsed && (
+          <>
+            <div className={styles.systemStatus}>
+              <span className="live-dot" />
+              <span>All Systems Nominal</span>
+            </div>
+            <span className={styles.version}>v1.0.0-dashboard</span>
+          </>
+        )}
       </div>
     </aside>
   );
 };
 
 export default Sidebar;
+

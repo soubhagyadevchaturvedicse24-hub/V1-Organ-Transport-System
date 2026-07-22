@@ -10,6 +10,9 @@ import MatchingQueue from './pages/MatchingQueue';
 import TransportMap from './pages/TransportMap';
 import BlockchainAudit from './pages/BlockchainAudit';
 import SimulatorPage from './pages/SimulatorPage';
+import DonorConsent from './pages/DonorConsent';
+import HospitalRegistry from './pages/HospitalRegistry';
+import CommitteeApproval from './pages/CommitteeApproval';
 import './App.css';
 
 function App() {
@@ -24,11 +27,14 @@ function App() {
               
               <Route path="/dashboard" element={<DashboardLayout />}>
                 <Route index element={<Navigate to="overview" replace />} />
-                <Route path="overview"   element={<ExecutiveOverview />} />
-                <Route path="matching"   element={<MatchingQueue />}     />
-                <Route path="transport"  element={<TransportMap />}      />
-                <Route path="audit"      element={<BlockchainAudit />}   />
-                <Route path="simulator"  element={<SimulatorPage />}     />
+                <Route path="overview"          element={<ExecutiveOverview />} />
+                <Route path="matching"          element={<MatchingQueue />}     />
+                <Route path="transport"         element={<TransportMap />}      />
+                <Route path="donor-consent"     element={<DonorConsent />}      />
+                <Route path="hospital-registry" element={<HospitalRegistry />}  />
+                <Route path="committee"         element={<CommitteeApproval />} />
+                <Route path="audit"             element={<BlockchainAudit />}   />
+                <Route path="simulator"         element={<SimulatorPage />}     />
               </Route>
               
               <Route path="*" element={<Navigate to="/" replace />} />
