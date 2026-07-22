@@ -15,7 +15,8 @@ import {
   BarChart2, 
   PieChart as PieIcon,
   ExternalLink,
-  Clock
+  Clock,
+  Server
 } from 'lucide-react';
 import {
   PieChart, Pie, Cell,
