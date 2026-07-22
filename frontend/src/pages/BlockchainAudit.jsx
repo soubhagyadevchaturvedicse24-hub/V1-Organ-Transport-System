@@ -10,7 +10,8 @@ import {
   ChevronUp, 
   ShieldCheck, 
   Server,
-  Activity
+  Activity,
+  RefreshCcw
 } from 'lucide-react';
 import { getAllBlocks, verifyLedger } from '../services/api';
 import styles from './BlockchainAudit.module.css';
@@ -33,6 +34,8 @@ const getHumanReadableType = (type) => {
     'transport.created': '📦 Transport Created',
     'transport.dispatched': '🚁 Transport Dispatched',
     'transport.started': '🏃 Transit Started',
+    'transport.telemetry_received': '📡 IoT Telemetry Ping',
+    'TELEMETRY_RECEIVED': '📡 IoT Telemetry Ping',
     'transport.arrived': '🏥 Transport Arrived',
     'transport.completed': '✅ Transport Completed',
     'TRANSPORT_CREATED': '📦 Transport Created',
@@ -51,8 +54,8 @@ const BlockchainAudit = () => {
   const [filter, setFilter] = useState('All');
   const [expandedBlock, setExpandedBlock] = useState(null);
   const [verifyState, setVerifyState] = useState({ loading: false, result: null });
-  const [chainStatus, setChainStatus] = useState('Valid'); // Valid | Invalid | Checking
-  
+  const [chainStatus, setChainStatus] = useState('Valid');
+
   const fetchBlocks = async () => {
     try {
       const data = await getAllBlocks();
@@ -68,8 +71,8 @@ const BlockchainAudit = () => {
 
   useEffect(() => {
     fetchBlocks();
-    // Auto-refresh every 5 seconds
-    const interval = setInterval(fetchBlocks, 5000);
+    // Fast polling (2 seconds) so IoT simulator pings update live
+    const interval = setInterval(fetchBlocks, 2000);
     return () => clearInterval(interval);
   }, []);
 
@@ -91,7 +94,7 @@ const BlockchainAudit = () => {
 
   const truncateHash = (hash) => {
     if (!hash) return 'N/A';
-    return `${hash.substring(0, 8)}...${hash.substring(hash.length - 8)}`;
+    return `${hash.substring(0, 6)}...${hash.substring(hash.length - 6)}`;
   };
 
   const formatDate = (timestamp) => {
@@ -100,18 +103,17 @@ const BlockchainAudit = () => {
     if (isNaN(d.getTime())) return 'Invalid date';
     return new Intl.DateTimeFormat('en-US', {
       month: 'short', day: 'numeric',
-      hour: '2-digit', minute: '2-digit', second: '2-digit',
-      fractionalSecondDigits: 3
+      hour: '2-digit', minute: '2-digit', second: '2-digit'
     }).format(d);
   };
 
   const filteredBlocks = blocks.filter(b => {
     if (filter === 'All') return true;
-    const type = b.entityType?.toLowerCase() || '';
-    if (filter === 'Organ' && type.includes('organ')) return true;
-    if (filter === 'Donor' && type.includes('donor')) return true;
-    if (filter === 'Match' && type.includes('match')) return true;
-    if (filter === 'Transport' && type.includes('transport')) return true;
+    const typeStr = `${b.entityType || ''} ${b.eventType || ''}`.toLowerCase();
+    if (filter === 'Organ' && typeStr.includes('organ')) return true;
+    if (filter === 'Donor' && typeStr.includes('donor')) return true;
+    if (filter === 'Match' && typeStr.includes('match')) return true;
+    if (filter === 'Transport' && (typeStr.includes('transport') || typeStr.includes('telemetry'))) return true;
     return false;
   });
 
@@ -121,50 +123,64 @@ const BlockchainAudit = () => {
 
   return (
     <div className={styles.container}>
+      {/* Compact Header */}
       <div className={styles.header}>
         <div className={styles.title}>
-          <Activity size={24} className={styles.pulseIcon} />
-          Blockchain Audit Trail
-          <div className={styles.livePulse} title="Live feed active"></div>
+          <Activity size={20} className={styles.pulseIcon} />
+          <span>Blockchain Audit Trail</span>
+          <div className={styles.livePulse} title="Live feed active (2s auto-refresh)"></div>
         </div>
+        <button 
+          className={styles.refreshBtn}
+          onClick={fetchBlocks}
+          title="Manual Refresh"
+        >
+          <RefreshCcw size={14} className={loading ? styles.spinning : ''} />
+          <span>Sync</span>
+        </button>
       </div>
 
+      {/* Stats Bar */}
       <div className={styles.statsBar}>
         <div className={styles.statCard}>
           <div className={styles.statLabel}>
-            <Database size={16} /> Total Blocks
+            <Database size={14} /> Total Blocks
           </div>
           <div className={styles.statValue}>{blocks.length}</div>
         </div>
+
         <div className={styles.statCard}>
           <div className={styles.statLabel}>
-            <ShieldCheck size={16} /> Chain Status
+            <ShieldCheck size={14} /> Chain Status
           </div>
           <div className={`${styles.statValue} ${chainStatus === 'Valid' ? styles.valid : chainStatus === 'Invalid' ? styles.invalid : ''}`}>
-            {chainStatus === 'Valid' && <CheckCircle size={20} />}
-            {chainStatus === 'Invalid' && <XCircle size={20} />}
-            {chainStatus === 'Checking' && <Activity size={20} className={styles.spinning} />}
-            {chainStatus}
+            {chainStatus === 'Valid' && <CheckCircle size={16} />}
+            {chainStatus === 'Invalid' && <XCircle size={16} />}
+            {chainStatus === 'Checking' && <Activity size={16} className={styles.spinning} />}
+            <span>{chainStatus}</span>
           </div>
         </div>
+
         <div className={styles.statCard}>
           <div className={styles.statLabel}>
-            <Clock size={16} /> Last Block
+            <Clock size={14} /> Last Block
           </div>
-          <div className={styles.statValue} style={{ fontSize: '1rem' }}>
+          <div className={styles.statValueSmall}>
             {lastBlockTime}
           </div>
         </div>
+
         <div className={styles.statCard}>
           <div className={styles.statLabel}>
-            <Server size={16} /> Network
+            <Server size={14} /> Network
           </div>
-          <div className={styles.statValue} style={{ fontSize: '1rem' }}>
+          <div className={styles.statValueSmall}>
             Hyperledger Fabric
           </div>
         </div>
       </div>
 
+      {/* Controls & Filter Bar */}
       <div className={styles.controls}>
         <div className={styles.filters}>
           {['All', 'Organ', 'Donor', 'Match', 'Transport'].map(f => (
@@ -177,31 +193,31 @@ const BlockchainAudit = () => {
             </button>
           ))}
         </div>
-        <div>
-          <button 
-            className={styles.verifyBtn} 
-            onClick={handleVerify}
-            disabled={verifyState.loading}
-          >
-            <ShieldCheck size={18} />
-            {verifyState.loading ? 'Verifying...' : 'Verify Chain'}
-          </button>
-        </div>
+        
+        <button 
+          className={styles.verifyBtn} 
+          onClick={handleVerify}
+          disabled={verifyState.loading}
+        >
+          <ShieldCheck size={15} />
+          <span>{verifyState.loading ? 'Verifying...' : 'Verify Chain'}</span>
+        </button>
       </div>
 
       {verifyState.result && (
         <div className={`${styles.verifyResult} ${verifyState.result.valid ? styles.success : styles.error}`}>
           {verifyState.result.valid 
-            ? <><CheckCircle size={18} /> Cryptographic verification passed. All {verifyState.result.totalBlocks || blocks.length} blocks are mathematically linked.</>
-            : <><XCircle size={18} /> Verification failed! {verifyState.result.error || 'Hash mismatch detected.'}</>
+            ? <><CheckCircle size={16} /> Cryptographic verification passed. All {verifyState.result.totalBlocks || blocks.length} blocks are mathematically linked on Hyperledger Fabric.</>
+            : <><XCircle size={16} /> Verification failed! {verifyState.result.error || 'Hash mismatch detected.'}</>
           }
         </div>
       )}
 
+      {/* Compact Feed */}
       {loading && blocks.length === 0 ? (
-        <div className={styles.emptyState}>Loading blockchain data...</div>
+        <div className={styles.emptyState}>Loading blockchain ledger...</div>
       ) : filteredBlocks.length === 0 ? (
-        <div className={styles.emptyState}>No blocks found for this filter.</div>
+        <div className={styles.emptyState}>No blocks found for filter "{filter}". Start the IoT simulator or trigger actions to generate blocks.</div>
       ) : (
         <div className={styles.feed}>
           <AnimatePresence>
@@ -212,37 +228,37 @@ const BlockchainAudit = () => {
                 <motion.div 
                   key={block.blockIndex ?? block.hash ?? i}
                   className={styles.blockWrapper}
-                  initial={{ opacity: 0, y: 20 }}
+                  initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3 }}
+                  transition={{ duration: 0.2 }}
                 >
                   <div className={styles.chainLink}>
-                    <LinkIcon size={16} />
+                    <LinkIcon size={12} />
                   </div>
+
                   <div 
-                    className={styles.blockCard}
+                    className={`${styles.blockCard} ${isExpanded ? styles.cardExpanded : ''}`}
                     onClick={() => setExpandedBlock(isExpanded ? null : block.blockIndex)}
                   >
                     <div className={styles.blockHeader}>
                       <div className={styles.blockLeft}>
-                        <div className={styles.blockIndex}>#{block.blockIndex}</div>
-                        <div>
-                          <div className={styles.blockType}>
-                            {getHumanReadableType(block.eventType)}
-                          </div>
-                          <div className={styles.blockEntity}>
-                            {block.entityType} {block.entityId ? `- ${block.entityId.substring(0,8)}...` : ''}
-                          </div>
-                        </div>
+                        <span className={styles.blockBadge}>#{block.blockIndex}</span>
+                        <span className={styles.blockType}>
+                          {getHumanReadableType(block.eventType)}
+                        </span>
+                        <span className={styles.blockEntity}>
+                          {block.entityType} {block.entityId ? `[${block.entityId.substring(0, 10)}]` : ''}
+                        </span>
                       </div>
+
                       <div className={styles.blockRight}>
-                        <div className={styles.blockHash}>
+                        <code className={styles.blockHash} title={block.hash}>
                           {truncateHash(block.hash)}
-                        </div>
-                        <div className={styles.blockTime}>
+                        </code>
+                        <span className={styles.blockTime}>
                           {formatDate(block.timestamp)}
-                        </div>
-                        {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                        </span>
+                        {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                       </div>
                     </div>
 
@@ -252,28 +268,26 @@ const BlockchainAudit = () => {
                           initial={{ height: 0, opacity: 0 }}
                           animate={{ height: 'auto', opacity: 1 }}
                           exit={{ height: 0, opacity: 0 }}
-                          transition={{ duration: 0.2 }}
+                          transition={{ duration: 0.15 }}
                           style={{ overflow: 'hidden' }}
                         >
                           <div className={styles.blockDetails} onClick={(e) => e.stopPropagation()}>
                             <div className={styles.detailRow}>
-                              <div className={styles.detailLabel}>Block Hash</div>
-                              <div className={styles.detailValue}>{block.hash || 'N/A'}</div>
+                              <span className={styles.detailLabel}>Block Hash:</span>
+                              <code className={styles.detailValue}>{block.hash || 'N/A'}</code>
                             </div>
                             <div className={styles.detailRow}>
-                              <div className={styles.detailLabel}>Previous Hash</div>
-                              <div className={styles.detailValue}>{block.previousHash || 'Genesis Block'}</div>
+                              <span className={styles.detailLabel}>Previous Hash:</span>
+                              <code className={styles.detailValue}>{block.previousHash || 'Genesis Block'}</code>
                             </div>
-                            <div className={styles.detailRow}>
-                              <div className={styles.detailLabel}>Transaction ID</div>
-                              <div className={styles.detailValue}>{block.transactionId || 'N/A'}</div>
-                            </div>
-                            <div className={styles.detailRow}>
-                              <div className={styles.detailLabel}>Payload Data</div>
-                              <pre className={`${styles.detailValue} ${styles.payload}`}>
-                                {block.payload ? JSON.stringify(block.payload, null, 2) : 'No payload data'}
-                              </pre>
-                            </div>
+                            {block.payload && (
+                              <div className={styles.detailRowColumn}>
+                                <span className={styles.detailLabel}>Payload Data:</span>
+                                <pre className={styles.payload}>
+                                  {JSON.stringify(block.payload, null, 2)}
+                                </pre>
+                              </div>
+                            )}
                           </div>
                         </motion.div>
                       )}
