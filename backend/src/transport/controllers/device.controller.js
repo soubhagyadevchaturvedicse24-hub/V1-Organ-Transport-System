@@ -27,9 +27,17 @@ export const triggerMilestone = async (req, res, next) => {
       'TRANSPORT_DISPATCHED': TRANSPORT_EVENTS.TRANSPORT_DISPATCHED,
       'TRANSPORT_ARRIVED': TRANSPORT_EVENTS.TRANSPORT_ARRIVED,
       'TRANSPORT_COMPLETED': TRANSPORT_EVENTS.TRANSPORT_COMPLETED,
+      'transport.created': TRANSPORT_EVENTS.TRANSPORT_CREATED,
+      'transport.dispatched': TRANSPORT_EVENTS.TRANSPORT_DISPATCHED,
+      'transport.arrived': TRANSPORT_EVENTS.TRANSPORT_ARRIVED,
+      'transport.completed': TRANSPORT_EVENTS.TRANSPORT_COMPLETED,
+      'created': TRANSPORT_EVENTS.TRANSPORT_CREATED,
+      'dispatched': TRANSPORT_EVENTS.TRANSPORT_DISPATCHED,
+      'arrived': TRANSPORT_EVENTS.TRANSPORT_ARRIVED,
+      'completed': TRANSPORT_EVENTS.TRANSPORT_COMPLETED,
     };
 
-    const eventName = map[milestone];
+    const eventName = map[milestone] || map[milestone?.toUpperCase()];
     if (!eventName) {
       return res.status(400).json({ success: false, message: `Unknown milestone: ${milestone}` });
     }
