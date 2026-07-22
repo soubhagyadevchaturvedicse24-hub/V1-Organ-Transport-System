@@ -42,8 +42,7 @@ export const initializeAuditSubscriber = () => {
   subscribeToLedger(TRANSPORT_EVENTS.TRANSPORT_COMPLETED, 'TransportMission', p => p.missionId);
   subscribeToLedger(TRANSPORT_EVENTS.TRANSPORT_CANCELLED, 'TransportMission', p => p.missionId);
   
-  // Health & Telemetry
-  subscribeToLedger(TRANSPORT_EVENTS.TELEMETRY_RECEIVED, 'TransportMission', p => p.missionId);
+  // Health & Telemetry (Notarize status changes and alerts to Blockchain, keep raw pings in MongoDB)
   subscribeToLedger(TRANSPORT_EVENTS.TELEMETRY_ALERT, 'TransportMission', p => p.missionId);
   subscribeToLedger(TRANSPORT_EVENTS.HEALTH_STATUS_CHANGED, 'TransportMission', p => p.missionId);
 
