@@ -3,12 +3,11 @@ import { DONOR_EVENTS } from '../../domain/events/donor.events.js';
 import { ORGAN_EVENTS } from '../../domain/events/organ.events.js';
 import { MATCHING_EVENTS } from '../../domain/events/matching.events.js';
 import { TRANSPORT_EVENTS } from '../../domain/events/transport.events.js';
-import MiniBlockchainAdapter from '../adapters/MiniBlockchainAdapter.js';
+import { getBlockchainAdapter } from '../adapters/BlockchainAdapterFactory.js';
 import logger from '../../logger/index.js';
 
-const ledgerAdapter = new MiniBlockchainAdapter(); // This is replaceable
-
 export const initializeAuditSubscriber = () => {
+  const ledgerAdapter = getBlockchainAdapter();
   const subscribeToLedger = (eventName, entityType, idExtractor) => {
     eventBus.on(eventName, async (payload) => {
       try {
@@ -50,5 +49,5 @@ export const initializeAuditSubscriber = () => {
   logger.info('Audit Subscriber initialized and bound to Event Bus.');
 };
 
-// Also expose adapter directly for controllers if needed
-export const getBlockchainAdapter = () => ledgerAdapter;
+// Re-export adapter getter for controllers
+export { getBlockchainAdapter } from '../adapters/BlockchainAdapterFactory.js';
