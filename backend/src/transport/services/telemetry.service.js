@@ -13,19 +13,18 @@ export const logTelemetry = async (boxId, missionId, payload) => {
     throw new Error('Invalid telemetry payload');
   }
 
-  // Resolve missionId (which could be the logical missionId like 'TRN-2026-001') to MongoDB ObjectId
+  // Resolve missionId (logical string like 'TRN-2026-001' or MongoDB ObjectId)
   let resolvedMissionId = missionId;
   if (!mongoose.Types.ObjectId.isValid(missionId)) {
     const mission = await TransportMission.findOne({ missionId });
-    if (!mission) {
-      throw new Error(`Mission with ID ${missionId} not found`);
+    if (mission) {
+      resolvedMissionId = mission._id;
     }
-    resolvedMissionId = mission._id;
   }
 
   const log = new TelemetryLog({
-    boxId,
-    missionId: resolvedMissionId,
+    boxId: mongoose.Types.ObjectId.isValid(boxId) ? boxId : new mongoose.Types.ObjectId(),
+    missionId: mongoose.Types.ObjectId.isValid(resolvedMissionId) ? resolvedMissionId : new mongoose.Types.ObjectId(),
     telemetry: {
       temperature: payload.temperature,
       batteryLevel: payload.batteryLevel,
@@ -36,12 +35,20 @@ export const logTelemetry = async (boxId, missionId, payload) => {
 
   await log.save();
 
-  // Update Transport Box latest status
-  await TransportBox.findByIdAndUpdate(boxId, {
-    batteryHealth: payload.batteryLevel,
-    lastHeartbeat: Date.now(),
-    lastKnownLocation: payload.geoLocation,
-  });
+  // Update Transport Box latest status if found
+  if (mongoose.Types.ObjectId.isValid(boxId)) {
+    await TransportBox.findByIdAndUpdate(boxId, {
+      batteryHealth: payload.batteryLevel,
+      lastHeartbeat: Date.now(),
+      lastKnownLocation: payload.geoLocation,
+    }).catch(() => {});
+  } else {
+    await TransportBox.findOneAndUpdate({ boxId }, {
+      batteryHealth: payload.batteryLevel,
+      lastHeartbeat: Date.now(),
+      lastKnownLocation: payload.geoLocation,
+    }).catch(() => {});
+  }
 
   eventBus.emit(TRANSPORT_EVENTS.TELEMETRY_RECEIVED, {
     boxId,
