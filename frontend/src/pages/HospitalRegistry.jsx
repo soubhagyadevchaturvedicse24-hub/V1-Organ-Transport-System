@@ -53,7 +53,7 @@ const RadialProgress = ({ score }) => {
   );
 };
 
-const HospitalCard = ({ hospital }) => {
+const HospitalCard = ({ hospital, idx = 0 }) => {
   const score = getCapabilityScore(hospital);
   const cfg = getComplianceStatus(hospital);
   const StatusIcon = cfg.Icon;
@@ -225,7 +225,7 @@ const HospitalRegistry = () => {
       ) : (
         <div className={styles.grid}>
           {filteredHospitals.map((hospital, idx) => (
-            <HospitalCard key={hospital._id || hospital.hospitalId || idx} hospital={hospital} />
+            <HospitalCard key={hospital._id || hospital.hospitalId || idx} hospital={hospital} idx={idx} />
           ))}
         </div>
       )}
