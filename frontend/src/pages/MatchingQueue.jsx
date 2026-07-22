@@ -1,7 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getMatches, updateMatchStatus } from '../services/api';
-import { UserCheck, ChevronDown, ChevronUp, Check, X } from 'lucide-react';
+import { UserCheck, ChevronDown, ChevronUp, Check, X, Zap, Target, Activity } from 'lucide-react';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell
+} from 'recharts';
 import styles from './MatchingQueue.module.css';
 
 const MatchingQueue = () => {
@@ -48,7 +51,6 @@ const MatchingQueue = () => {
   };
 
   const handleAction = async (flatMatch, action) => {
-    // Optimistic UI update
     setMatches(matches.filter(m => m._id !== flatMatch._id));
     try {
       await updateMatchStatus(flatMatch.matchId, flatMatch.recipientDbId, action);
@@ -57,12 +59,71 @@ const MatchingQueue = () => {
     }
   };
 
+  /* Score distribution bar chart */
+  const scoreDistData = useMemo(() => {
+    const buckets = [
+      { range: '60-69', count: 0, fill: '#f87171' },
+      { range: '70-79', count: 0, fill: '#fbbf24' },
+      { range: '80-89', count: 0, fill: '#60a5fa' },
+      { range: '90-100', count: 0, fill: '#22d3a0' },
+    ];
+    matches.forEach(m => {
+      const s = m.score || 0;
+      if (s >= 90) buckets[3].count++;
+      else if (s >= 80) buckets[2].count++;
+      else if (s >= 70) buckets[1].count++;
+      else buckets[0].count++;
+    });
+    return buckets;
+  }, [matches]);
+
+  const avgScore = matches.length > 0
+    ? Math.round(matches.reduce((a, m) => a + (m.score || 0), 0) / matches.length)
+    : 0;
+
   return (
     <div className="page-container">
       <div className={styles.header}>
-        <h1 className="gradient-text">Matching Queue</h1>
-        <p className={styles.subtitle}>Review AI-recommended allocations</p>
+        <div>
+          <h1 className={`gradient-text ${styles.title}`}>Matching Queue</h1>
+          <p className={styles.subtitle}>AI-powered organ-recipient allocation recommendations</p>
+        </div>
+        <div className={styles.headerStats}>
+          <div className={styles.statPill}>
+            <Target size={13} style={{ color: '#22d3a0' }} />
+            <span>{matches.length} Pending</span>
+          </div>
+          <div className={styles.statPill} style={{ '--pill-color': '#60a5fa' }}>
+            <Activity size={13} style={{ color: '#60a5fa' }} />
+            <span>Avg Score: {avgScore}</span>
+          </div>
+        </div>
       </div>
+
+      {/* Score Distribution Chart */}
+      {!loading && matches.length > 0 && (
+        <div className={`glass-panel ${styles.chartPanel}`}>
+          <div className={styles.chartHead}>
+            <Zap size={15} style={{ color: '#fbbf24' }} />
+            <span className={styles.chartTitle}>Compatibility Score Distribution</span>
+            <span className={styles.chartSub}>{matches.length} recommendations pending review</span>
+          </div>
+          <ResponsiveContainer width="100%" height={140}>
+            <BarChart data={scoreDistData} margin={{ top: 4, right: 10, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+              <XAxis dataKey="range" tick={{ fill: '#9090b0', fontSize: 11 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill: '#9090b0', fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
+              <Tooltip
+                contentStyle={{ background: '#20203a', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, fontSize: 12, color: '#f0f0f8' }}
+                cursor={{ fill: 'rgba(255,255,255,0.04)' }}
+              />
+              <Bar dataKey="count" name="Matches" radius={[6, 6, 0, 0]}>
+                {scoreDistData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
 
       {loading ? (
         <div className={styles.loader}>Loading recommendations...</div>
@@ -88,26 +149,39 @@ const MatchingQueue = () => {
                   className={`${styles.matchCard} glass-panel`}
                 >
                   <div className={styles.cardHeader} onClick={() => toggleExpand(match._id)}>
+                    {/* Score Visual */}
                     <div className={styles.matchScore}>
-                      <div className={styles.scoreCircle} style={{ 
-                        borderColor: match.score > 80 ? 'var(--status-normal)' : 'var(--status-warning)',
-                        color: match.score > 80 ? 'var(--status-normal)' : 'var(--status-warning)'
+                      <div className={styles.scoreCircle} style={{
+                        borderColor: match.score >= 90 ? '#22d3a0' : match.score >= 80 ? '#60a5fa' : '#fbbf24',
+                        color: match.score >= 90 ? '#22d3a0' : match.score >= 80 ? '#60a5fa' : '#fbbf24',
                       }}>
                         {match.score}
                       </div>
+                      <div className={styles.scoreBar}>
+                        <motion.div
+                          className={styles.scoreBarFill}
+                          style={{ background: match.score >= 90 ? '#22d3a0' : match.score >= 80 ? '#60a5fa' : '#fbbf24' }}
+                          initial={{ width: 0 }}
+                          animate={{ width: `${match.score}%` }}
+                          transition={{ duration: 0.8, ease: 'easeOut' }}
+                        />
+                      </div>
                     </div>
-                    
+
                     <div className={styles.matchDetails}>
-                      <h3>Match Recommendation: {match._id}</h3>
+                      <h3 className={styles.matchTitle}>Match Recommendation</h3>
                       <div className={styles.matchEntities}>
                         <span>Organ: <strong>{match.organId}</strong></span>
                         <span className={styles.separator}>→</span>
                         <span>Recipient: <strong>{match.recipientId}</strong></span>
                       </div>
+                      <div className={styles.scoreBadge} style={{ color: match.score >= 90 ? '#22d3a0' : match.score >= 80 ? '#60a5fa' : '#fbbf24' }}>
+                        {match.score >= 90 ? '⚡ Excellent Match' : match.score >= 80 ? '✓ Good Match' : '⚠ Moderate Match'}
+                      </div>
                     </div>
-                    
+
                     <div className={styles.expandToggle}>
-                      {isExpanded ? <ChevronUp size={24} /> : <ChevronDown size={24} />}
+                      {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
                     </div>
                   </div>
 

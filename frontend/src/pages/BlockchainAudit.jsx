@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Link as LinkIcon, 
@@ -12,8 +12,15 @@ import {
   Server,
   Activity,
   RefreshCcw,
-  AlertTriangle
+  AlertTriangle,
+  BarChart2,
+  PieChart as PieIcon
 } from 'lucide-react';
+import {
+  PieChart, Pie, Cell,
+  LineChart, Line,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
+} from 'recharts';
 import { getAllBlocks, verifyLedger } from '../services/api';
 import styles from './BlockchainAudit.module.css';
 
@@ -91,6 +98,23 @@ const getBlockSeverity = (block) => {
   return 'normal'; // GREEN
 };
 
+/* ── Tooltip ── */
+const ChartTooltip = ({ active, payload, label }) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className={styles.chartTooltip}>
+      {label && <p className={styles.tooltipLabel}>{label}</p>}
+      {payload.map((p, i) => (
+        <div key={i} className={styles.tooltipRow}>
+          <span className={styles.tooltipDot} style={{ background: p.color || p.fill }} />
+          <span className={styles.tooltipName}>{p.name}:</span>
+          <span className={styles.tooltipVal}>{p.value}</span>
+        </div>
+      ))}
+    </div>
+  );
+};
+
 const BlockchainAudit = () => {
   const [blocks, setBlocks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -114,7 +138,6 @@ const BlockchainAudit = () => {
 
   useEffect(() => {
     fetchBlocks();
-    // Fast polling (2 seconds) so IoT simulator pings update live
     const interval = setInterval(fetchBlocks, 2000);
     return () => clearInterval(interval);
   }, []);
@@ -127,10 +150,7 @@ const BlockchainAudit = () => {
       setVerifyState({ loading: false, result });
       setChainStatus(result.valid ? 'Valid' : 'Invalid');
     } catch (err) {
-      setVerifyState({ 
-        loading: false, 
-        result: { valid: false, error: err.message || 'Verification failed' } 
-      });
+      setVerifyState({ loading: false, result: { valid: false, error: err.message || 'Verification failed' } });
       setChainStatus('Invalid');
     }
   };
@@ -160,9 +180,31 @@ const BlockchainAudit = () => {
     return false;
   });
 
-  const lastBlockTime = blocks.length > 0 && blocks[0].timestamp 
-    ? formatDate(blocks[0].timestamp) 
+  const lastBlockTime = blocks.length > 0 && blocks[0].timestamp
+    ? formatDate(blocks[0].timestamp)
     : '--';
+
+  /* ── Analytics: Event Type Pie ── */
+  const EVENT_COLORS = ['#22d3a0','#60a5fa','#a78bfa','#fbbf24','#f472b6','#f87171','#34d399'];
+  const eventTypePieData = useMemo(() => {
+    const counts = {};
+    blocks.forEach(b => {
+      const t = b.entityType || b.eventType || 'Other';
+      const label = t.length > 14 ? t.slice(0, 14) + '…' : t;
+      counts[label] = (counts[label] || 0) + 1;
+    });
+    return Object.entries(counts).map(([name, value]) => ({ name, value })).slice(0, 6);
+  }, [blocks]);
+
+  /* ── Analytics: Block Growth Line ── */
+  const blockGrowthData = useMemo(() => {
+    const sorted = [...blocks].sort((a, b) => (a.blockIndex ?? 0) - (b.blockIndex ?? 0));
+    const step = Math.max(1, Math.floor(sorted.length / 8));
+    return sorted.filter((_, i) => i % step === 0 || i === sorted.length - 1).map(b => ({
+      idx: `#${b.blockIndex}`,
+      Blocks: (b.blockIndex ?? 0) + 1,
+    }));
+  }, [blocks]);
 
   return (
     <div className={styles.container}>
@@ -234,6 +276,55 @@ const BlockchainAudit = () => {
           </div>
         </div>
       </div>
+
+      {/* ── Analytics Charts Row ── */}
+      {blocks.length > 0 && (
+        <div className={styles.chartsRow}>
+          {/* Event Type Pie */}
+          <div className={`${styles.chartCard} glass-panel`}>
+            <div className={styles.chartHead}>
+              <PieIcon size={14} style={{ color: 'var(--brand-purple)' }} />
+              <span className={styles.chartLabel}>Event Type Distribution</span>
+            </div>
+            <ResponsiveContainer width="100%" height={180}>
+              <PieChart>
+                <Pie data={eventTypePieData} cx="40%" cy="50%" innerRadius={48} outerRadius={72} paddingAngle={3} dataKey="value" strokeWidth={0}>
+                  {eventTypePieData.map((_, i) => <Cell key={i} fill={EVENT_COLORS[i % EVENT_COLORS.length]} />)}
+                </Pie>
+                <Tooltip content={<ChartTooltip />} />
+                <Legend
+                  layout="vertical" align="right" verticalAlign="middle"
+                  iconSize={8}
+                  wrapperStyle={{ fontSize: 11, color: '#9090b0', paddingLeft: 8 }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Block Growth Line */}
+          <div className={`${styles.chartCard} glass-panel`}>
+            <div className={styles.chartHead}>
+              <BarChart2 size={14} style={{ color: 'var(--brand-green)' }} />
+              <span className={styles.chartLabel}>Ledger Block Growth</span>
+            </div>
+            <ResponsiveContainer width="100%" height={180}>
+              <LineChart data={blockGrowthData} margin={{ top: 4, right: 10, left: -20, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="auditGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%"  stopColor="#22d3a0" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#22d3a0" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                <XAxis dataKey="idx" tick={{ fill: '#9090b0', fontSize: 10 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: '#9090b0', fontSize: 11 }} axisLine={false} tickLine={false} />
+                <Tooltip content={<ChartTooltip />} />
+                <Line type="monotone" dataKey="Blocks" stroke="#22d3a0" strokeWidth={2.5} dot={{ r: 3, fill: '#22d3a0' }} activeDot={{ r: 5 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
 
       {/* Controls & Filter Bar */}
       <div className={styles.controls}>
