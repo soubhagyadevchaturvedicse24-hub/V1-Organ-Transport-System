@@ -32,7 +32,26 @@ app.use(cookieParser());
 app.get('/', (req, res) => {
   res.json({
     name: 'Organ Transport Platform API',
-    version: '1.0.0'
+    version: '1.0.0',
+    status: 'Running'
+  });
+});
+
+app.get(['/api/v1', '/api/v1/'], (req, res) => {
+  res.status(200).json({
+    status: 'OK',
+    message: 'Organ Transport System API v1',
+    documentation: 'https://github.com/soubhagyadevchaturvedicse24-hub/V1-Organ-Transport-System',
+    endpoints: {
+      auth: '/api/v1/auth',
+      hospitals: '/api/v1/hospitals',
+      donors: '/api/v1/donors',
+      organs: '/api/v1/organs',
+      matching: '/api/v1/matching',
+      transport: '/api/v1/transport/missions',
+      audit: '/api/v1/audit/blocks',
+      health: '/api/v1/health',
+    }
   });
 });
 
