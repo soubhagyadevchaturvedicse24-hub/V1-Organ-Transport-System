@@ -56,10 +56,8 @@ const BlockchainAudit = () => {
   const fetchBlocks = async () => {
     try {
       const data = await getAllBlocks();
-      // Ensure we have an array
-      const blockArray = Array.isArray(data) ? data : (data?.blocks || []);
-      // Sort by index descending (newest first)
-      const sorted = [...blockArray].sort((a, b) => (b.blockIndex || 0) - (a.blockIndex || 0));
+      const rawList = Array.isArray(data) ? data : (data?.data || data?.blocks || []);
+      const sorted = [...rawList].sort((a, b) => (b.blockIndex ?? 0) - (a.blockIndex ?? 0));
       setBlocks(sorted);
     } catch (err) {
       console.error('Failed to fetch blocks:', err);

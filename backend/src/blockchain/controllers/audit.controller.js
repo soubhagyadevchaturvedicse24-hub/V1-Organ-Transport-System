@@ -17,7 +17,7 @@ export const getEntityHistory = async (req, res, next) => {
 export const getAllBlocks = async (req, res, next) => {
   try {
     const blocks = await LedgerBlock.find().sort({ blockIndex: -1 }).limit(100);
-    res.status(200).json(blocks);
+    res.status(200).json({ success: true, data: blocks });
   } catch (error) {
     next(error);
   }
