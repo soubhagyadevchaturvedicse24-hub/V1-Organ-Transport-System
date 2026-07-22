@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, GitFork, Map, ShieldCheck, HeartPulse,
-  Cpu, LogOut, FileCheck, Building2, Scale, ChevronLeft, ChevronRight
+  Cpu, LogOut, FileCheck, Building2, Scale, ChevronLeft, ChevronRight, BarChart3
 } from 'lucide-react';
 import styles from './Sidebar.module.css';
 import { useAuth } from '../context/AuthContext';
@@ -14,6 +14,7 @@ const ALL_LINKS = [
   { name: 'Donor Consent',       path: '/dashboard/donor-consent',     icon: FileCheck,       section: 'THOTA Legal', roles: ['PLATFORM_ADMIN', 'HOSPITAL_COORDINATOR'] },
   { name: 'Hospital Compliance', path: '/dashboard/hospital-registry', icon: Building2,       section: null, roles: ['PLATFORM_ADMIN'] },
   { name: 'Committee Approval',  path: '/dashboard/committee',         icon: Scale,           section: null, roles: ['PLATFORM_ADMIN', 'HOSPITAL_COORDINATOR'] },
+  { name: 'Analytics',           path: '/dashboard/analytics',         icon: BarChart3,       section: 'Insights', roles: ['PLATFORM_ADMIN', 'HOSPITAL_COORDINATOR'] },
   { name: 'Blockchain Audit',    path: '/dashboard/audit',             icon: ShieldCheck,    section: 'Audit', roles: ['PLATFORM_ADMIN'] },
   { name: 'IoT Simulator',       path: '/dashboard/simulator',         icon: Cpu,            section: 'Tools', isSimulator: true, roles: ['PLATFORM_ADMIN'] },
 ];
