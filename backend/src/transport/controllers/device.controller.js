@@ -6,10 +6,33 @@ import { TRANSPORT_EVENTS } from '../../domain/events/transport.events.js';
 
 export const postTelemetry = async (req, res, next) => {
   try {
-    const { missionId, ...payload } = req.body;
+    const { missionId, milestone, ...payload } = req.body;
     
     if (!missionId) {
       return next(DEVICE_ERRORS.INVALID_PAYLOAD);
+    }
+
+    if (milestone) {
+      const map = {
+        'TRANSPORT_CREATED': TRANSPORT_EVENTS.TRANSPORT_CREATED,
+        'TRANSPORT_DISPATCHED': TRANSPORT_EVENTS.TRANSPORT_DISPATCHED,
+        'TRANSPORT_ARRIVED': TRANSPORT_EVENTS.TRANSPORT_ARRIVED,
+        'TRANSPORT_COMPLETED': TRANSPORT_EVENTS.TRANSPORT_COMPLETED,
+        'transport.created': TRANSPORT_EVENTS.TRANSPORT_CREATED,
+        'transport.dispatched': TRANSPORT_EVENTS.TRANSPORT_DISPATCHED,
+        'transport.arrived': TRANSPORT_EVENTS.TRANSPORT_ARRIVED,
+        'transport.completed': TRANSPORT_EVENTS.TRANSPORT_COMPLETED,
+      };
+      const eventName = map[milestone] || map[milestone?.toUpperCase()];
+      if (eventName) {
+        eventBus.emit(eventName, {
+          missionId,
+          boxId: req.device?.boxId || 'BOX-2026-FABRIC-ALPHA',
+          timestamp: new Date().toISOString(),
+          triggeredBy: 'IoT Simulator',
+          milestone,
+        });
+      }
     }
 
     const log = await telemetryService.logTelemetry(req.device.boxId, missionId, payload);

@@ -201,7 +201,7 @@ export const SimulatorProvider = ({ children }) => {
       };
 
       const API = getBaseUrl();
-      const res = await fetch(`${API}/device/milestone`, {
+      let res = await fetch(`${API}/device/milestone`, {
         method: 'POST',
         headers: {
           'Content-Type':   'application/json',
@@ -211,6 +211,26 @@ export const SimulatorProvider = ({ children }) => {
         body: JSON.stringify({ milestone, missionId: cfg.missionId }),
       });
 
+      if (!res.ok && res.status === 404) {
+        // Fail-safe fallback to telemetry route with milestone metadata
+        res = await fetch(`${API}/device/telemetry`, {
+          method: 'POST',
+          headers: {
+            'Content-Type':   'application/json',
+            'x-device-id':    cfg.boxId,
+            'x-device-secret':cfg.deviceSecret,
+          },
+          body: JSON.stringify({
+            missionId: cfg.missionId,
+            temperature: currentTemp || 4.0,
+            batteryLevel: currentBattery || 100,
+            isTampered: isTamperedMode || false,
+            milestone,
+            geoLocation: { type: 'Point', coordinates: [cfg.startLng, cfg.startLat] }
+          }),
+        });
+      }
+
       if (res.ok) {
         addLog('success', `✓ Blockchain Notarized Milestone: ${milestone}`);
       } else {
@@ -219,7 +239,7 @@ export const SimulatorProvider = ({ children }) => {
     } catch (err) {
       addLog('error', `✗ Milestone error — ${err.message}`);
     }
-  }, [cfg, addLog]);
+  }, [cfg, currentTemp, currentBattery, isTamperedMode, addLog]);
 
   useEffect(() => () => clearInterval(timerRef.current), []);
 
