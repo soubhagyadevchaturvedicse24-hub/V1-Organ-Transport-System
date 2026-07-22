@@ -39,6 +39,10 @@ const ledgerBlockSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.Mixed,
       required: true,
     },
+    arweaveTxId: {
+      type: String,
+      default: null,
+    },
   },
   {
     timestamps: false,

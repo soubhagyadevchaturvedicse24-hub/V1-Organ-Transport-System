@@ -558,3 +558,6 @@
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+.arweaveLink { color: var(--brand-purple); display: inline-flex; align-items: center; gap: 4px; text-decoration: underline; font-weight: 500; transition: color 0.2s; }
+.arweaveLink:hover { color: var(--brand-blue); }

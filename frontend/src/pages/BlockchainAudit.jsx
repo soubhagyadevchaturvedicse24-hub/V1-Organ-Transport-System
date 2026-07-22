@@ -1,20 +1,20 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Link as LinkIcon, 
-  Clock, 
+  ShieldCheck, 
   Database, 
+  RefreshCcw, 
+  FileText, 
   CheckCircle, 
   XCircle, 
   ChevronDown, 
   ChevronUp, 
-  ShieldCheck, 
-  Server,
-  Activity,
-  RefreshCcw,
-  AlertTriangle,
-  BarChart2,
-  PieChart as PieIcon
+  Link as LinkIcon, 
+  AlertTriangle, 
+  Activity, 
+  BarChart2, 
+  PieChart as PieIcon,
+  ExternalLink
 } from 'lucide-react';
 import {
   PieChart, Pie, Cell,
@@ -430,6 +430,19 @@ const BlockchainAudit = () => {
                               <span className={styles.detailLabel}>Previous Hash:</span>
                               <code className={styles.detailValue}>{block.previousHash || 'Genesis Block'}</code>
                             </div>
+                            {block.arweaveTxId && (
+                              <div className={styles.detailRow}>
+                                <span className={styles.detailLabel}>Immutable Storage (Arweave):</span>
+                                <a 
+                                  href={`https://gateway.irys.xyz/${block.arweaveTxId}`} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className={styles.arweaveLink}
+                                >
+                                  {block.arweaveTxId} <ExternalLink size={12} />
+                                </a>
+                              </div>
+                            )}
                             {block.payload && (
                               <div className={styles.detailRowColumn}>
                                 <span className={styles.detailLabel}>Payload Data:</span>

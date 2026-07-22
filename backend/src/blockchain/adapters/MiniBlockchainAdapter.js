@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import BlockchainAdapter from './BlockchainAdapter.js';
 import LedgerBlock from '../../models/LedgerBlock.js';
 import logger from '../../logger/index.js';
+import IrysConnector from '../IrysConnector.js';
 
 export default class MiniBlockchainAdapter extends BlockchainAdapter {
   
@@ -18,10 +19,10 @@ export default class MiniBlockchainAdapter extends BlockchainAdapter {
     return `{${str}}`;
   }
 
-  _calculateHash(blockIndex, timestamp, previousHash, eventType, entityType, entityId, payload) {
+  _calculateHash(blockIndex, timestamp, previousHash, eventType, entityType, entityId, payload, arweaveTxId) {
     // Ensure payload is a pure JS object, stripping Mongoose docs, undefineds, etc.
     const rawPayload = payload ? JSON.parse(JSON.stringify(payload)) : payload;
-    const dataString = `${blockIndex}|${timestamp.toISOString()}|${previousHash}|${eventType}|${entityType}|${entityId}|${this._canonicalStringify(rawPayload)}`;
+    const dataString = `${blockIndex}|${timestamp.toISOString()}|${previousHash}|${eventType}|${entityType}|${entityId}|${this._canonicalStringify(rawPayload)}|${arweaveTxId || 'none'}`;
     return crypto.createHash('sha256').update(dataString).digest('hex');
   }
 
@@ -34,7 +35,15 @@ export default class MiniBlockchainAdapter extends BlockchainAdapter {
 
       // IMPORTANT: We MUST deeply stringify/parse payload before hashing and saving to strip all Mongoose internals
       const rawPayload = payload ? JSON.parse(JSON.stringify(payload)) : payload;
-      const hash = this._calculateHash(blockIndex, timestamp, previousHash, eventType, entityType, entityId, rawPayload);
+      // Upload to Arweave Permaweb via Irys
+      let arweaveTxId = null;
+      try {
+        arweaveTxId = await IrysConnector.uploadPayload(rawPayload);
+      } catch (err) {
+        logger.error(`Failed to upload to Arweave: ${err.message}`);
+      }
+
+      const hash = this._calculateHash(blockIndex, timestamp, previousHash, eventType, entityType, entityId, rawPayload, arweaveTxId);
 
       const block = new LedgerBlock({
         blockIndex,
@@ -45,6 +54,7 @@ export default class MiniBlockchainAdapter extends BlockchainAdapter {
         entityType,
         entityId,
         payload: rawPayload,
+        arweaveTxId,
       });
 
       await block.save();
@@ -65,6 +75,7 @@ export default class MiniBlockchainAdapter extends BlockchainAdapter {
       payload: b.payload,
       hash: b.hash,
       previousHash: b.previousHash,
+      arweaveTxId: b.arweaveTxId,
     }));
   }
 
@@ -100,15 +111,16 @@ export default class MiniBlockchainAdapter extends BlockchainAdapter {
         };
       }
 
-      // Verify internal hash
+      // Verify deterministic payload hash including arweaveTxId
       const expectedSelfHash = this._calculateHash(
         block.blockIndex,
-        block.timestamp, // It's a Date object if lean() preserves Date, wait! lean() returns raw BSON Date object, which is Date!
+        block.timestamp,
         block.previousHash,
         block.eventType,
         block.entityType,
         block.entityId,
-        block.payload
+        block.payload,
+        block.arweaveTxId
       );
 
       if (block.hash !== expectedSelfHash) {
