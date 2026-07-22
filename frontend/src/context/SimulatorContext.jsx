@@ -10,14 +10,10 @@ const defaults = {
   tempTarget:  4.0,      // target temperature
   tempSpike:   0.0,      // NO automatic random temp spikes (user controlled only)
   tamperChance:0.0,      // NO automatic random lid open (user controlled only)
-  batteryDrain:0.1,      // minimal battery drain per tick
+  batteryDrain:0.0,      // NO automatic battery drain (user controlled only)
   startLat:    28.5659,
   startLng:    77.2090,
 };
-
-const pct = (p) => Math.random() < p;
-const rand = (min, max) => Math.random() * (max - min) + min;
-const clamp = (val, min, max) => Math.min(Math.max(val, min), max);
 
 export const SimulatorProvider = ({ children }) => {
   const [cfg, setCfg] = useState({ ...defaults });
@@ -61,28 +57,14 @@ export const SimulatorProvider = ({ children }) => {
 
   const tick = useCallback(async () => {
     const s = state.current;
-    let spiked = false;
-    let tampered = false;
+    
+    // Completely deterministic - temperature, battery, tamper strictly follow state ref
+    const spiked = s.temp > 8.0 || s.temp < 2.0;
+    const tampered = s.isTampered || false;
 
-    if (!s.isManual) {
-      spiked = pct(cfg.tempSpike);
-      tampered = pct(cfg.tamperChance);
-
-      if (spiked) {
-        s.temp = rand(8.5, 11.5);
-      } else {
-        s.temp = clamp(s.temp + rand(-0.15, 0.15), cfg.tempTarget - 0.5, 10);
-      }
-
-      s.battery = clamp(s.battery - cfg.batteryDrain, 0, 100);
-      
-      // Update UI states
-      setCurrentTemp(parseFloat(s.temp.toFixed(2)));
-      setCurrentBattery(parseFloat(s.battery.toFixed(1)));
-    } else {
-      spiked = s.temp > 8.0 || s.temp < 1.0;
-      tampered = s.isTampered || false;
-    }
+    // Update UI state representations
+    setCurrentTemp(parseFloat(s.temp.toFixed(2)));
+    setCurrentBattery(parseFloat(s.battery.toFixed(1)));
 
     const dLat = 19.0069 - s.lat;
     const dLng = 72.8427 - s.lng;
@@ -177,7 +159,8 @@ export const SimulatorProvider = ({ children }) => {
     setIsManualMode(true);
     setCurrentTemp(val);
     addLog('info', `Manual override: Temp set to ${val}°C`);
-  }, [addLog]);
+    tick(); // Trigger instant ping & notification update!
+  }, [addLog, tick]);
 
   const overrideBattery = useCallback((val) => {
     state.current.battery = val;
@@ -185,7 +168,8 @@ export const SimulatorProvider = ({ children }) => {
     setIsManualMode(true);
     setCurrentBattery(val);
     addLog('info', `Manual override: Battery set to ${val}%`);
-  }, [addLog]);
+    tick(); // Trigger instant ping & notification update!
+  }, [addLog, tick]);
 
   const overrideTamper = useCallback((val) => {
     state.current.isTampered = val;
@@ -193,15 +177,17 @@ export const SimulatorProvider = ({ children }) => {
     setIsManualMode(true);
     setIsTamperedMode(val);
     addLog('info', `Manual override: Tamper set to ${val ? 'ON' : 'OFF'}`);
-  }, [addLog]);
+    tick(); // Trigger instant ping & notification update!
+  }, [addLog, tick]);
 
   const releaseManual = useCallback(() => {
     state.current.isManual = false;
     setIsManualMode(false);
     setIsTamperedMode(false);
     state.current.isTampered = false;
-    addLog('info', 'Manual override released. Automatic drift mode active.');
-  }, [addLog]);
+    addLog('info', 'Manual override released.');
+    tick();
+  }, [addLog, tick]);
 
   useEffect(() => () => clearInterval(timerRef.current), []);
 

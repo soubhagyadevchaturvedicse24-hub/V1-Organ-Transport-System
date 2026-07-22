@@ -30,6 +30,8 @@ const Topbar = () => {
   }, []);
 
   // Listen to simulator telemetry changes & health state
+  const lastTamperedRef = useRef(false);
+
   useEffect(() => {
     if (!simContext?.telemetry) return;
     const { temperature, tampered, spiked, batteryLevel } = simContext.telemetry;
@@ -41,18 +43,24 @@ const Topbar = () => {
       currentHealth = 'WARNING';
     }
 
-    if (currentHealth !== lastHealthRef.current) {
+    const healthChanged = currentHealth !== lastHealthRef.current;
+    const tamperChanged = tampered !== lastTamperedRef.current;
+
+    if (healthChanged || tamperChanged) {
       lastHealthRef.current = currentHealth;
+      lastTamperedRef.current = tampered;
 
       const newNotif = {
-        id: Date.now(),
-        title: currentHealth === 'CRITICAL' ? '⚠️ CRITICAL HEALTH ALERT' : currentHealth === 'WARNING' ? '⚡ HEALTH WARNING' : '✅ Health Normal',
-        message: currentHealth === 'CRITICAL' 
-          ? `Box tamper or low battery (${batteryLevel}%) detected!`
+        id: Date.now() + Math.random(),
+        title: tampered ? '🚨 TAMPER DETECTED!' : currentHealth === 'CRITICAL' ? '⚠️ CRITICAL HEALTH ALERT' : currentHealth === 'WARNING' ? '⚡ HEALTH WARNING' : '✅ Health Normal',
+        message: tampered 
+          ? `Lid open / unauthorized box tampering detected!`
+          : currentHealth === 'CRITICAL'
+          ? `Low battery (${batteryLevel}%) or critical alert!`
           : currentHealth === 'WARNING'
           ? `Temperature out of safe bounds (${temperature}°C)!`
-          : `Transport health restored to normal parameters.`,
-        type: currentHealth === 'CRITICAL' ? 'error' : currentHealth === 'WARNING' ? 'warning' : 'success',
+          : `Transport health restored to normal parameters (${temperature}°C).`,
+        type: (tampered || currentHealth === 'CRITICAL') ? 'error' : currentHealth === 'WARNING' ? 'warning' : 'success',
         time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
         read: false
       };
