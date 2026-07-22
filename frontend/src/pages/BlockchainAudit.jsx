@@ -11,7 +11,8 @@ import {
   ShieldCheck, 
   Server,
   Activity,
-  RefreshCcw
+  RefreshCcw,
+  AlertTriangle
 } from 'lucide-react';
 import { getAllBlocks, verifyLedger } from '../services/api';
 import styles from './BlockchainAudit.module.css';
@@ -42,10 +43,43 @@ const getHumanReadableType = (type) => {
     'TRANSPORT_DISPATCHED': '🚁 Transport Dispatched',
     'TRANSPORT_ARRIVED': '🏥 Transport Arrived',
     'TRANSPORT_COMPLETED': '✅ Transport Completed',
-    'TELEMETRY_ALERT': '⚠️ Telemetry Alert',
+    'TELEMETRY_ALERT': '🚨 TELEMETRY ALERT',
     'HEALTH_STATUS_CHANGED': '💓 Health Status Changed',
   };
   return map[type] || type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+};
+
+const getBlockSeverity = (block) => {
+  const eventType = (block.eventType || '').toLowerCase();
+  const payload = block.payload || {};
+  const telemetry = payload.telemetry || {};
+
+  // 1. RED (Critical Tamper / Alert / Temp Anomaly)
+  if (
+    eventType.includes('alert') ||
+    eventType.includes('tamper') ||
+    telemetry.isTampered ||
+    payload.isTampered ||
+    (telemetry.temperature !== undefined && (telemetry.temperature > 8.0 || telemetry.temperature < 2.0)) ||
+    (telemetry.batteryLevel !== undefined && telemetry.batteryLevel < 20)
+  ) {
+    return 'critical'; // RED
+  }
+
+  // 2. AMBER / YELLOW (Technical Warning / Health Change / Exception)
+  if (
+    eventType.includes('warning') ||
+    eventType.includes('error') ||
+    eventType.includes('changed') ||
+    eventType.includes('retry') ||
+    payload.status === 'WARNING' ||
+    payload.health?.status === 'WARNING'
+  ) {
+    return 'warning'; // AMBER / YELLOW
+  }
+
+  // 3. GREEN (Normal Regular Operations)
+  return 'normal'; // GREEN
 };
 
 const BlockchainAudit = () => {
@@ -123,21 +157,33 @@ const BlockchainAudit = () => {
 
   return (
     <div className={styles.container}>
-      {/* Compact Header */}
+      {/* Header */}
       <div className={styles.header}>
         <div className={styles.title}>
           <Activity size={20} className={styles.pulseIcon} />
           <span>Blockchain Audit Trail</span>
           <div className={styles.livePulse} title="Live feed active (2s auto-refresh)"></div>
         </div>
-        <button 
-          className={styles.refreshBtn}
-          onClick={fetchBlocks}
-          title="Manual Refresh"
-        >
-          <RefreshCcw size={14} className={loading ? styles.spinning : ''} />
-          <span>Sync</span>
-        </button>
+
+        <div className={styles.legend}>
+          <span className={styles.legendItem}>
+            <span className={`${styles.legendDot} ${styles.dotNormal}`}></span> Normal
+          </span>
+          <span className={styles.legendItem}>
+            <span className={`${styles.legendDot} ${styles.dotWarning}`}></span> Warning
+          </span>
+          <span className={styles.legendItem}>
+            <span className={`${styles.legendDot} ${styles.dotCritical}`}></span> Tamper / Alert
+          </span>
+          <button 
+            className={styles.refreshBtn}
+            onClick={fetchBlocks}
+            title="Manual Refresh"
+          >
+            <RefreshCcw size={14} className={loading ? styles.spinning : ''} />
+            <span>Sync</span>
+          </button>
+        </div>
       </div>
 
       {/* Stats Bar */}
@@ -213,7 +259,7 @@ const BlockchainAudit = () => {
         </div>
       )}
 
-      {/* Compact Feed */}
+      {/* 3-Tier Color Coded Feed */}
       {loading && blocks.length === 0 ? (
         <div className={styles.emptyState}>Loading blockchain ledger...</div>
       ) : filteredBlocks.length === 0 ? (
@@ -223,6 +269,7 @@ const BlockchainAudit = () => {
           <AnimatePresence>
             {filteredBlocks.map((block, i) => {
               const isExpanded = expandedBlock === block.blockIndex;
+              const severity = getBlockSeverity(block); // 'critical' | 'warning' | 'normal'
               
               return (
                 <motion.div 
@@ -232,18 +279,21 @@ const BlockchainAudit = () => {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.2 }}
                 >
-                  <div className={styles.chainLink}>
+                  <div className={`${styles.chainLink} ${styles[`link_${severity}`]}`}>
                     <LinkIcon size={12} />
                   </div>
 
                   <div 
-                    className={`${styles.blockCard} ${isExpanded ? styles.cardExpanded : ''}`}
+                    className={`${styles.blockCard} ${styles[`card_${severity}`]} ${isExpanded ? styles.cardExpanded : ''}`}
                     onClick={() => setExpandedBlock(isExpanded ? null : block.blockIndex)}
                   >
                     <div className={styles.blockHeader}>
                       <div className={styles.blockLeft}>
-                        <span className={styles.blockBadge}>#{block.blockIndex}</span>
+                        <span className={`${styles.blockBadge} ${styles[`badge_${severity}`]}`}>
+                          #{block.blockIndex}
+                        </span>
                         <span className={styles.blockType}>
+                          {severity === 'critical' && <AlertTriangle size={13} className={styles.alertIcon} />}
                           {getHumanReadableType(block.eventType)}
                         </span>
                         <span className={styles.blockEntity}>
@@ -252,7 +302,7 @@ const BlockchainAudit = () => {
                       </div>
 
                       <div className={styles.blockRight}>
-                        <code className={styles.blockHash} title={block.hash}>
+                        <code className={`${styles.blockHash} ${styles[`hash_${severity}`]}`} title={block.hash}>
                           {truncateHash(block.hash)}
                         </code>
                         <span className={styles.blockTime}>
