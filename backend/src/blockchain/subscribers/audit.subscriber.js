@@ -35,17 +35,27 @@ export const initializeAuditSubscriber = () => {
   subscribeToLedger(MATCHING_EVENTS.MATCHING_TRIGGERED, 'Match', p => p.matchId);
   subscribeToLedger(MATCHING_EVENTS.MATCH_ACCEPTED, 'Match', p => p.matchId);
 
-  // Transport Events
-  subscribeToLedger(TRANSPORT_EVENTS.TRANSPORT_CREATED, 'TransportMission', p => p.missionId);
-  subscribeToLedger(TRANSPORT_EVENTS.TRANSPORT_DISPATCHED, 'TransportMission', p => p.missionId);
-  subscribeToLedger(TRANSPORT_EVENTS.TRANSPORT_ARRIVED, 'TransportMission', p => p.missionId);
-  subscribeToLedger(TRANSPORT_EVENTS.TRANSPORT_COMPLETED, 'TransportMission', p => p.missionId);
-  subscribeToLedger(TRANSPORT_EVENTS.TRANSPORT_CANCELLED, 'TransportMission', p => p.missionId);
-  
-  // Health & Telemetry (Notarize status changes and regular pings to Blockchain)
-  subscribeToLedger(TRANSPORT_EVENTS.TELEMETRY_RECEIVED, 'TransportMission', p => p.missionId);
-  subscribeToLedger(TRANSPORT_EVENTS.TELEMETRY_ALERT, 'TransportMission', p => p.missionId);
-  subscribeToLedger(TRANSPORT_EVENTS.HEALTH_STATUS_CHANGED, 'TransportMission', p => p.missionId);
+  // Helper to extract entity ID reliably
+  const extractId = p => p?.missionId || p?.id || p?.boxId || 'TRN-2026-001';
+
+  // Transport Events (Subscribe to both transport.xxx and TRANSPORT_XXX)
+  const transportEventPairs = [
+    [TRANSPORT_EVENTS.TRANSPORT_CREATED, 'TRANSPORT_CREATED'],
+    [TRANSPORT_EVENTS.TRANSPORT_DISPATCHED, 'TRANSPORT_DISPATCHED'],
+    [TRANSPORT_EVENTS.TRANSPORT_ARRIVED, 'TRANSPORT_ARRIVED'],
+    [TRANSPORT_EVENTS.TRANSPORT_COMPLETED, 'TRANSPORT_COMPLETED'],
+    [TRANSPORT_EVENTS.TRANSPORT_CANCELLED, 'TRANSPORT_CANCELLED'],
+    [TRANSPORT_EVENTS.TELEMETRY_RECEIVED, 'TELEMETRY_RECEIVED'],
+    [TRANSPORT_EVENTS.TELEMETRY_ALERT, 'TELEMETRY_ALERT'],
+    [TRANSPORT_EVENTS.HEALTH_STATUS_CHANGED, 'HEALTH_STATUS_CHANGED'],
+  ];
+
+  transportEventPairs.forEach(([ev1, ev2]) => {
+    subscribeToLedger(ev1, 'TransportMission', extractId);
+    if (ev2 !== ev1) {
+      subscribeToLedger(ev2, 'TransportMission', extractId);
+    }
+  });
 
   logger.info('Audit Subscriber initialized and bound to Event Bus.');
 };

@@ -69,7 +69,13 @@ const getBlockSeverity = (block) => {
     return 'critical'; // RED
   }
 
-  // 2. AMBER / YELLOW (Technical Warning / Health Change / Exception)
+  // 2. Distinct Lifecycle Milestones
+  if (eventType.includes('created')) return 'milestone_created';     // Sky Blue
+  if (eventType.includes('dispatched')) return 'milestone_dispatched'; // Emerald
+  if (eventType.includes('arrived')) return 'milestone_arrived';       // Gold / Amber
+  if (eventType.includes('completed')) return 'milestone_completed';   // Purple / Violet
+
+  // 3. AMBER / YELLOW (Technical Warning / Health Change / Exception)
   if (
     eventType.includes('warning') ||
     eventType.includes('error') ||
@@ -81,7 +87,7 @@ const getBlockSeverity = (block) => {
     return 'warning'; // AMBER / YELLOW
   }
 
-  // 3. GREEN (Normal Regular Operations)
+  // 4. GREEN (Normal Regular Operations)
   return 'normal'; // GREEN
 };
 

@@ -283,15 +283,59 @@
   border-color: rgba(245, 158, 11, 0.6) !important;
 }
 
+/* Milestone Tier: CREATED (Sky Blue) */
+.card_milestone_created {
+  background: rgba(56, 189, 248, 0.14) !important;
+  border: 1px solid rgba(56, 189, 248, 0.45) !important;
+  box-shadow: inset 0 0 10px rgba(56, 189, 248, 0.08);
+}
+.card_milestone_created:hover {
+  background: rgba(56, 189, 248, 0.22) !important;
+  border-color: rgba(56, 189, 248, 0.7) !important;
+}
+
+/* Milestone Tier: DISPATCHED (Emerald) */
+.card_milestone_dispatched {
+  background: rgba(16, 185, 129, 0.14) !important;
+  border: 1px solid rgba(16, 185, 129, 0.45) !important;
+  box-shadow: inset 0 0 10px rgba(16, 185, 129, 0.08);
+}
+.card_milestone_dispatched:hover {
+  background: rgba(16, 185, 129, 0.22) !important;
+  border-color: rgba(16, 185, 129, 0.7) !important;
+}
+
+/* Milestone Tier: ARRIVED (Gold/Amber) */
+.card_milestone_arrived {
+  background: rgba(245, 158, 11, 0.14) !important;
+  border: 1px solid rgba(245, 158, 11, 0.45) !important;
+  box-shadow: inset 0 0 10px rgba(245, 158, 11, 0.08);
+}
+.card_milestone_arrived:hover {
+  background: rgba(245, 158, 11, 0.22) !important;
+  border-color: rgba(245, 158, 11, 0.7) !important;
+}
+
+/* Milestone Tier: COMPLETED (Purple/Violet) */
+.card_milestone_completed {
+  background: rgba(168, 85, 247, 0.14) !important;
+  border: 1px solid rgba(168, 85, 247, 0.45) !important;
+  box-shadow: inset 0 0 10px rgba(168, 85, 247, 0.08);
+}
+.card_milestone_completed:hover {
+  background: rgba(168, 85, 247, 0.22) !important;
+  border-color: rgba(168, 85, 247, 0.7) !important;
+}
+
 /* Tier 3: GREEN (Normal Regular Operations) */
 .card_normal {
-  background: rgba(16, 185, 129, 0.08) !important;
-  border: 1px solid rgba(16, 185, 129, 0.35) !important;
-  box-shadow: inset 0 0 10px rgba(16, 185, 129, 0.04);
+  background: rgba(16, 185, 129, 0.05) !important;
+  border: 1px solid rgba(16, 185, 129, 0.2) !important;
+  box-shadow: inset 0 0 10px rgba(16, 185, 129, 0.02);
 }
 .card_normal:hover {
-  background: rgba(16, 185, 129, 0.16) !important;
-  border-color: rgba(16, 185, 129, 0.55) !important;
+  background: rgba(16, 185, 129, 0.12) !important;
+  border-color: rgba(16, 185, 129, 0.4) !important;
 }
 
 .cardExpanded {
@@ -322,6 +366,26 @@
 .badge_critical {
   background: rgba(239, 68, 68, 0.25);
   color: #f87171;
+}
+
+.badge_milestone_created {
+  background: rgba(56, 189, 248, 0.25);
+  color: #38bdf8;
+}
+
+.badge_milestone_dispatched {
+  background: rgba(16, 185, 129, 0.25);
+  color: #34d399;
+}
+
+.badge_milestone_arrived {
+  background: rgba(245, 158, 11, 0.25);
+  color: #fbbf24;
+}
+
+.badge_milestone_completed {
+  background: rgba(168, 85, 247, 0.25);
+  color: #c084fc;
 }
 
 .badge_warning {
