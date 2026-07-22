@@ -19,18 +19,22 @@ export default class MiniBlockchainAdapter extends BlockchainAdapter {
   }
 
   _calculateHash(blockIndex, timestamp, previousHash, eventType, entityType, entityId, payload) {
-    const dataString = `${blockIndex}|${timestamp.toISOString()}|${previousHash}|${eventType}|${entityType}|${entityId}|${this._canonicalStringify(payload)}`;
+    // Ensure payload is a pure JS object, stripping Mongoose docs, undefineds, etc.
+    const rawPayload = payload ? JSON.parse(JSON.stringify(payload)) : payload;
+    const dataString = `${blockIndex}|${timestamp.toISOString()}|${previousHash}|${eventType}|${entityType}|${entityId}|${this._canonicalStringify(rawPayload)}`;
     return crypto.createHash('sha256').update(dataString).digest('hex');
   }
 
   async append(eventType, entityType, entityId, payload) {
     try {
-      const lastBlock = await LedgerBlock.findOne().sort({ blockIndex: -1 });
+      const lastBlock = await LedgerBlock.findOne().sort({ blockIndex: -1 }).lean();
       const blockIndex = lastBlock ? lastBlock.blockIndex + 1 : 0;
       const previousHash = lastBlock ? lastBlock.hash : '0000000000000000000000000000000000000000000000000000000000000000';
       const timestamp = new Date();
 
-      const hash = this._calculateHash(blockIndex, timestamp, previousHash, eventType, entityType, entityId, payload);
+      // IMPORTANT: We MUST deeply stringify/parse payload before hashing and saving to strip all Mongoose internals
+      const rawPayload = payload ? JSON.parse(JSON.stringify(payload)) : payload;
+      const hash = this._calculateHash(blockIndex, timestamp, previousHash, eventType, entityType, entityId, rawPayload);
 
       const block = new LedgerBlock({
         blockIndex,
@@ -40,7 +44,7 @@ export default class MiniBlockchainAdapter extends BlockchainAdapter {
         eventType,
         entityType,
         entityId,
-        payload,
+        payload: rawPayload,
       });
 
       await block.save();
@@ -53,7 +57,7 @@ export default class MiniBlockchainAdapter extends BlockchainAdapter {
   }
 
   async getHistory(entityType, entityId) {
-    const blocks = await LedgerBlock.find({ entityType, entityId }).sort({ blockIndex: 1 });
+    const blocks = await LedgerBlock.find({ entityType, entityId }).sort({ blockIndex: 1 }).lean();
     return blocks.map(b => ({
       blockIndex: b.blockIndex,
       timestamp: b.timestamp,
@@ -65,7 +69,7 @@ export default class MiniBlockchainAdapter extends BlockchainAdapter {
   }
 
   async verify() {
-    const blocks = await LedgerBlock.find().sort({ blockIndex: 1 });
+    const blocks = await LedgerBlock.find().sort({ blockIndex: 1 }).lean();
     
     if (blocks.length === 0) {
       return { valid: true, totalBlocks: 0, verifiedBlocks: 0, brokenBlock: null };
@@ -99,7 +103,7 @@ export default class MiniBlockchainAdapter extends BlockchainAdapter {
       // Verify internal hash
       const expectedSelfHash = this._calculateHash(
         block.blockIndex,
-        block.timestamp,
+        block.timestamp, // It's a Date object if lean() preserves Date, wait! lean() returns raw BSON Date object, which is Date!
         block.previousHash,
         block.eventType,
         block.entityType,
