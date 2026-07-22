@@ -1,18 +1,16 @@
 import mongoose from 'mongoose';
 import logger from '../logger/index.js';
-import { MongoMemoryServer } from 'mongodb-memory-server';
 
-// We import seedData using dynamic import to avoid circular dependencies
-// if any models import db.js
 let mongoServer;
 
 export const connectDB = async () => {
   try {
-    const conn = await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/organ-transport', { serverSelectionTimeoutMS: 2000 });
+    const conn = await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/organ-transport', { serverSelectionTimeoutMS: 5000 });
     logger.info(`MongoDB Connected: ${conn.connection.host}`);
   } catch (error) {
-    logger.warn(`Primary DB connection failed, using in-memory fallback...`);
+    logger.warn(`Primary DB connection failed (${error.message}), using in-memory fallback...`);
     try {
+      const { MongoMemoryServer } = await import('mongodb-memory-server');
       mongoServer = await MongoMemoryServer.create();
       const uri = mongoServer.getUri();
       const conn = await mongoose.connect(uri);
