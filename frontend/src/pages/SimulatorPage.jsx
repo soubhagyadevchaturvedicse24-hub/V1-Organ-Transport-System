@@ -1,366 +1,602 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Cpu, Play, Square, RotateCcw, Thermometer, Battery,
-  AlertTriangle, Wifi, WifiOff, Settings,
-  MapPin, Zap, ChevronRight, Activity, Send, Package, Truck, CheckCircle2
+  AlertTriangle, Wifi, WifiOff, CheckCircle2, Circle, ChevronRight,
+  Activity, Package, Truck, MapPin, Heart, User, Zap, Lock, Unlock,
+  RefreshCcw
 } from 'lucide-react';
 import { useSimulatorContext } from '../context/SimulatorContext';
 import styles from './SimulatorPage.module.css';
 
+/* ─── helpers ─────────────────────────────────────────────────── */
 const clamp = (v, mn, mx) => Math.max(mn, Math.min(mx, v));
 
+const getBaseUrl = () => {
+  if (import.meta.env.VITE_API_BASE_URL) return import.meta.env.VITE_API_BASE_URL;
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    return 'http://localhost:5000/api/v1';
+  }
+  return 'https://v1-organ-transport-system.onrender.com/api/v1';
+};
+
+/* Directly write a block to the blockchain via the notarize endpoint */
+const notarizeToChain = async (eventType, entityId, payload, deviceId, deviceSecret) => {
+  const res = await fetch(`${getBaseUrl()}/audit/notarize`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      eventType,
+      entityType: 'TransportMission',
+      entityId,
+      payload,
+    }),
+  });
+  return res;
+};
+
+/* ─── Step Definitions ──────────────────────────────────────────
+   Each step has:
+   - id, label, icon, color
+   - description (shown in the step card)
+   - action: async fn called when "Execute" is pressed; receives { addLog, cfg }; returns { ok, hash }
+   - isManual: whether it needs user to adjust sliders (for telemetry steps)
+──────────────────────────────────────────────────────────────── */
+
+const makeSteps = (cfg) => [
+  {
+    id: 'donor_created',
+    label: 'Register Donor',
+    icon: User,
+    color: '#a78bfa', // violet
+    description: 'A brain-dead donor is admitted and registered in the system. Consent is verified. Blockchain records the donor registration.',
+    eventType: 'DONOR_CREATED',
+    entityType: 'Donor',
+    entityId: 'DON-2026-SIM',
+    payload: () => ({
+      donorId: 'DON-2026-SIM',
+      name: 'Simulation Donor',
+      bloodType: 'O+',
+      hospital: 'AIIMS Delhi',
+      timestamp: new Date().toISOString(),
+    }),
+  },
+  {
+    id: 'organ_registered',
+    label: 'Register Organ',
+    icon: Heart,
+    color: '#f87171', // red
+    description: 'A viable kidney organ is harvested from the donor and registered with viability data. Blockchain records organ registration.',
+    eventType: 'ORGAN_REGISTERED',
+    entityType: 'Organ',
+    entityId: 'ORG-2026-SIM',
+    payload: () => ({
+      organId: 'ORG-2026-SIM',
+      donorId: 'DON-2026-SIM',
+      type: 'Kidney',
+      bloodType: 'O+',
+      viabilityHours: 24,
+      harvestTime: new Date().toISOString(),
+    }),
+  },
+  {
+    id: 'match_accepted',
+    label: 'Match & Accept',
+    icon: CheckCircle2,
+    color: '#34d399', // emerald
+    description: 'The organ matching engine finds a compatible recipient. The hospital accepts the match. Blockchain records the accepted match.',
+    eventType: 'MATCH_ACCEPTED',
+    entityType: 'Match',
+    entityId: 'MATCH-2026-SIM',
+    payload: () => ({
+      matchId: 'MATCH-2026-SIM',
+      organId: 'ORG-2026-SIM',
+      recipientId: 'RCP-2026-SIM',
+      recipientHospital: 'NIMHANS Bengaluru',
+      score: 97.4,
+      acceptedAt: new Date().toISOString(),
+    }),
+  },
+  {
+    id: 'transport_created',
+    label: 'Create Transport',
+    icon: Package,
+    color: '#38bdf8', // sky
+    description: 'A transport mission is created to move the organ from AIIMS Delhi to NIMHANS Bengaluru. Box BOX-2026-FABRIC-ALPHA is assigned.',
+    eventType: 'transport.created',
+    entityType: 'TransportMission',
+    entityId: cfg.missionId,
+    payload: () => ({
+      missionId: cfg.missionId,
+      boxId: cfg.boxId,
+      organId: 'ORG-2026-SIM',
+      origin: 'AIIMS Delhi',
+      destination: 'NIMHANS Bengaluru',
+      estimatedHours: 2.5,
+      createdAt: new Date().toISOString(),
+    }),
+  },
+  {
+    id: 'transport_dispatched',
+    label: 'Dispatch Transport',
+    icon: Truck,
+    color: '#10b981', // green
+    description: 'The transport box is sealed and dispatched. IoT sensor begins transmitting live telemetry. Blockchain records dispatch.',
+    eventType: 'transport.dispatched',
+    entityType: 'TransportMission',
+    entityId: cfg.missionId,
+    payload: () => ({
+      missionId: cfg.missionId,
+      boxId: cfg.boxId,
+      dispatchedAt: new Date().toISOString(),
+      startLocation: 'AIIMS Delhi, 28.5659°N 77.2090°E',
+      triggeredBy: 'IoT Simulator',
+    }),
+  },
+  {
+    id: 'telemetry_normal',
+    label: 'Normal Telemetry',
+    icon: Activity,
+    color: '#94a3b8', // slate
+    isManual: false,
+    description: 'The box is in transit. Temperature is stable at 4°C. Battery 100%. Live telemetry ticking every 5s. You can adjust sliders below.',
+    eventType: 'TELEMETRY_RECEIVED',
+    entityType: 'TransportMission',
+    entityId: cfg.missionId,
+    payload: (telemetry) => ({
+      missionId: cfg.missionId,
+      temperature: telemetry?.temperature || 4.0,
+      batteryLevel: telemetry?.batteryLevel || 100,
+      isTampered: false,
+      status: 'NORMAL',
+      timestamp: new Date().toISOString(),
+    }),
+  },
+  {
+    id: 'telemetry_alert',
+    label: 'Simulate Alert',
+    icon: AlertTriangle,
+    color: '#f59e0b', // amber
+    description: 'Simulate a temperature spike or tamper event to trigger a CRITICAL alert on the blockchain. Raise temp above 8°C or toggle tamper.',
+    eventType: 'TELEMETRY_ALERT',
+    entityType: 'TransportMission',
+    entityId: cfg.missionId,
+    payload: (telemetry) => ({
+      missionId: cfg.missionId,
+      alerts: [
+        telemetry?.temperature > 8 ? `Temperature HIGH: ${telemetry?.temperature}°C` : null,
+        telemetry?.isTampered ? 'Box tamper detected!' : null,
+      ].filter(Boolean),
+      telemetry: {
+        temperature: telemetry?.temperature || 9.5,
+        batteryLevel: telemetry?.batteryLevel || 50,
+        isTampered: telemetry?.isTampered || false,
+      },
+      timestamp: new Date().toISOString(),
+    }),
+  },
+  {
+    id: 'transport_arrived',
+    label: 'Transport Arrived',
+    icon: MapPin,
+    color: '#fbbf24', // gold
+    description: 'The transport box arrives at NIMHANS Bengaluru. Organ is handed over to the surgical team. Blockchain records arrival.',
+    eventType: 'transport.arrived',
+    entityType: 'TransportMission',
+    entityId: cfg.missionId,
+    payload: () => ({
+      missionId: cfg.missionId,
+      boxId: cfg.boxId,
+      arrivedAt: new Date().toISOString(),
+      destination: 'NIMHANS Bengaluru, 12.9447°N 77.5946°E',
+      triggeredBy: 'IoT Simulator',
+    }),
+  },
+  {
+    id: 'transport_completed',
+    label: 'Transport Completed',
+    icon: CheckCircle2,
+    color: '#c084fc', // purple
+    description: 'Transplant surgery is successful. Mission is marked complete. Full audit trail is sealed on the blockchain.',
+    eventType: 'transport.completed',
+    entityType: 'TransportMission',
+    entityId: cfg.missionId,
+    payload: () => ({
+      missionId: cfg.missionId,
+      completedAt: new Date().toISOString(),
+      outcome: 'SUCCESS',
+      totalDurationMinutes: 148,
+      triggeredBy: 'IoT Simulator',
+    }),
+  },
+];
+
+/* ─── GaugeBar ─────────────────────────────────────────────── */
 const GaugeBar = ({ label, value, max, unit, color, icon: Icon, warn, critical }) => {
   const pct = clamp((value / max) * 100, 0, 100);
-  const isWarn = warn != null && value > warn;
-  const isCrit = critical != null && value > critical;
-  const barColor = isCrit ? 'var(--status-critical)' : isWarn ? 'var(--status-warning)' : color;
+  const isCrit = critical != null && (unit === '°C' ? value > critical : value < critical);
+  const isWarn = warn != null && (unit === '°C' ? value > warn : value < warn);
+  const barColor = isCrit ? '#ef4444' : isWarn ? '#f59e0b' : color;
 
   return (
-    <div className={styles.gauge}>
-      <div className={styles.gaugeHeader}>
-        <Icon size={15} style={{ color: barColor }} />
-        <span className={styles.gaugeLabel}>{label}</span>
-        <span className={styles.gaugeValue} style={{ color: barColor }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem' }}>
+        <Icon size={13} style={{ color: barColor }} />
+        <span style={{ color: '#94a3b8', flex: 1 }}>{label}</span>
+        <span style={{ color: barColor, fontFamily: 'monospace', fontWeight: 700 }}>
           {value != null ? `${value}${unit}` : '—'}
         </span>
-        {isCrit && <AlertTriangle size={13} style={{ color:'var(--status-critical)', marginLeft:'auto' }} />}
+        {isCrit && <AlertTriangle size={12} style={{ color: '#ef4444' }} />}
       </div>
-      <div className={styles.gaugeTrack}>
+      <div style={{ height: '6px', background: 'rgba(255,255,255,0.08)', borderRadius: '3px', overflow: 'hidden' }}>
         <motion.div
-          className={styles.gaugeFill}
-          style={{ background: barColor }}
+          style={{ height: '100%', background: barColor, borderRadius: '3px' }}
           animate={{ width: `${pct}%` }}
-          transition={{ type:'spring', stiffness:80 }}
+          transition={{ type: 'spring', stiffness: 60 }}
         />
       </div>
     </div>
   );
 };
 
+/* ─── LogLine ──────────────────────────────────────────────── */
 const LogLine = ({ entry }) => {
-  const colorMap = {
-    info:   'var(--text-tertiary)',
-    send:   'var(--brand-blue)',
-    success:'var(--brand-green)',
-    warn:   'var(--brand-amber)',
-    error:  'var(--brand-red)',
-  };
+  const colorMap = { info: '#64748b', send: '#60a5fa', success: '#34d399', warn: '#fbbf24', error: '#f87171' };
   return (
-    <div className={styles.logLine}>
-      <span className={styles.logTs}>{entry.ts}</span>
-      <span className={styles.logMsg} style={{ color: colorMap[entry.type] }}>{entry.msg}</span>
+    <div style={{ display: 'flex', gap: '8px', fontSize: '0.72rem', padding: '2px 0', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+      <span style={{ color: '#475569', flexShrink: 0, fontFamily: 'monospace' }}>{entry.ts}</span>
+      <span style={{ color: colorMap[entry.type] || '#94a3b8', fontFamily: 'monospace' }}>{entry.msg}</span>
     </div>
   );
 };
 
+/* ─── SimulatorPage ────────────────────────────────────────── */
 const SimulatorPage = () => {
   const sim = useSimulatorContext();
   const cfg = sim.cfg;
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState({ ...cfg });
 
-  useEffect(() => {
-    setDraft({ ...cfg });
-  }, [cfg]);
+  const [currentStep, setCurrentStep] = useState(0);
+  const [completedSteps, setCompletedSteps] = useState(new Set());
+  const [executing, setExecuting] = useState(false);
+  const [stepResult, setStepResult] = useState({}); // stepId -> { ok, hash, blockIndex }
 
-  const applyConfig = () => {
+  const steps = makeSteps(cfg);
+
+  const addLog = sim.addLog || (() => {});
+
+  /* ── execute a step ─────────────────────────────────── */
+  const executeStep = useCallback(async (step) => {
+    setExecuting(true);
+    const ts = new Date().toLocaleTimeString('en-IN', { hour12: false });
+
+    try {
+      addLog('info', `⚡ Notarizing: ${step.eventType} → ${step.entityId}`);
+
+      const telemetry = sim.telemetry;
+      const payload = step.payload(telemetry);
+
+      const res = await notarizeToChain(
+        step.eventType,
+        step.entityId,
+        payload,
+        cfg.boxId,
+        cfg.deviceSecret,
+      );
+
+      if (res.ok) {
+        const data = await res.json();
+        addLog('success', `✓ Block #${data.block?.blockIndex ?? '?'} written [${step.eventType}] hash:${(data.block?.hash || '').slice(0,10)}...`);
+        setStepResult(prev => ({ ...prev, [step.id]: { ok: true, blockIndex: data.block?.blockIndex, hash: data.block?.hash } }));
+        setCompletedSteps(prev => new Set([...prev, step.id]));
+        if (currentStep === steps.findIndex(s => s.id === step.id)) {
+          setCurrentStep(prev => Math.min(prev + 1, steps.length - 1));
+        }
+      } else {
+        const errText = await res.text().catch(() => '');
+        addLog('error', `✗ Notarize failed [${res.status}] ${errText.slice(0, 80)}`);
+        setStepResult(prev => ({ ...prev, [step.id]: { ok: false } }));
+      }
+    } catch (err) {
+      addLog('error', `✗ Network error — ${err.message}`);
+      setStepResult(prev => ({ ...prev, [step.id]: { ok: false } }));
+    } finally {
+      setExecuting(false);
+    }
+  }, [sim.telemetry, cfg, currentStep, steps, addLog]);
+
+  const resetAll = () => {
+    setCurrentStep(0);
+    setCompletedSteps(new Set());
+    setStepResult({});
     sim.reset();
-    sim.setCfg({ ...draft });
-    setEditing(false);
   };
 
   const t = sim.telemetry;
-  const connBadge = sim.connected === null
-    ? <span className="badge badge-idle"><Wifi size={10} /> Pending</span>
-    : sim.connected
-      ? <span className="badge badge-online"><Wifi size={10} /> Connected</span>
-      : <span className="badge badge-danger"><WifiOff size={10} /> Offline</span>;
 
   return (
-    <div className="page-container">
-      {/* Header */}
-      <motion.div className={styles.header} initial={{ opacity:0, y:-12 }} animate={{ opacity:1, y:0 }}>
-        <div>
-          <div className={styles.titleRow}>
-            <Cpu size={24} style={{ color:'var(--brand-amber)' }} />
-            <h1 className={`gradient-text-purple ${styles.title}`}>IoT Simulator</h1>
-            {sim.running && <span className="badge badge-warning"><span className="live-dot" style={{ background:'var(--brand-amber)' }} />RUNNING</span>}
+    <div className="page-container" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem', alignItems: 'start' }}>
+
+      {/* ── LEFT: Step Wizard ──────────────────────────── */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+
+        {/* Header */}
+        <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }}
+          style={{ display: 'flex', alignItems: 'center', gap: '12px', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Cpu size={22} style={{ color: '#f59e0b' }} />
+            <div>
+              <h1 className="gradient-text-purple" style={{ fontSize: '1.4rem', fontWeight: 800, margin: 0 }}>IoT Simulator</h1>
+              <p style={{ fontSize: '0.75rem', color: '#64748b', margin: 0 }}>Sequential organ transport lifecycle</p>
+            </div>
           </div>
-          <p className={styles.subtitle}>In-browser ESP32 transport box simulator — generates real telemetry packets</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {sim.connected === true && <span className="badge badge-online"><Wifi size={10} /> Live</span>}
+            {sim.connected === false && <span className="badge badge-danger"><WifiOff size={10} /> Offline</span>}
+            <button onClick={resetAll} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8', borderRadius: '8px', padding: '6px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem' }}>
+              <RotateCcw size={13} /> Reset All
+            </button>
+          </div>
+        </motion.div>
+
+        {/* Progress bar */}
+        <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '6px', height: '4px', overflow: 'hidden' }}>
+          <motion.div
+            style={{ height: '100%', background: 'linear-gradient(90deg, #6366f1, #a855f7)' }}
+            animate={{ width: `${(completedSteps.size / steps.length) * 100}%` }}
+            transition={{ type: 'spring', stiffness: 60 }}
+          />
         </div>
-        <div className={styles.connStatus}>{connBadge}</div>
-      </motion.div>
+        <div style={{ fontSize: '0.7rem', color: '#64748b', textAlign: 'right', marginTop: '-6px' }}>
+          {completedSteps.size} / {steps.length} steps completed
+        </div>
 
-      <div className={styles.layout}>
-        {/* ── LEFT COLUMN ──────────────────────────── */}
-        <div className={styles.leftCol}>
+        {/* Steps */}
+        {steps.map((step, idx) => {
+          const isDone = completedSteps.has(step.id);
+          const isActive = idx === currentStep;
+          const result = stepResult[step.id];
+          const Icon = step.icon;
 
-          {/* Controls */}
-          <motion.div className={`glass-panel ${styles.controlCard}`} initial={{ opacity:0, y:16 }} animate={{ opacity:1, y:0 }} transition={{ delay:0.1 }}>
-            <div className={styles.cardHead}>
-              <Activity size={16} style={{ color:'var(--brand-amber)' }} />
-              <h3>Simulation Controls</h3>
-            </div>
-
-            <div className={styles.btnRow}>
-              {!sim.running ? (
-                <button className="btn btn-primary" onClick={sim.start} style={{ background:'linear-gradient(135deg,var(--brand-amber),#d97706)', boxShadow:'var(--glow-amber)' }}>
-                  <Play size={16} /> Start Simulation
-                </button>
-              ) : (
-                <button className="btn btn-danger" onClick={sim.stop}>
-                  <Square size={16} /> Stop
-                </button>
-              )}
-              <button className="btn btn-ghost" onClick={sim.reset} disabled={sim.running}>
-                <RotateCcw size={16} /> Reset
-              </button>
-            </div>
-
-            <div className={styles.statsRow}>
-              <div className={styles.stat}>
-                <span className={styles.statVal}>{sim.ticks}</span>
-                <span className={styles.statLbl}>Ticks Sent</span>
-              </div>
-              <div className={styles.stat}>
-                <span className={styles.statVal}>{cfg.interval}s</span>
-                <span className={styles.statLbl}>Interval</span>
-              </div>
-              <div className={styles.stat}>
-                <span className={styles.statVal} style={{ color:'var(--brand-amber)' }}>{cfg.boxId}</span>
-                <span className={styles.statLbl}>Box ID</span>
-              </div>
-            </div>
-          </motion.div>
-
-          {/* Transport Blockchain Milestones (Requested) */}
-          <motion.div className={`glass-panel ${styles.controlCard}`} initial={{ opacity:0, y:16 }} animate={{ opacity:1, y:0 }} transition={{ delay:0.12 }}>
-            <div className={styles.cardHead}>
-              <Send size={16} style={{ color:'var(--brand-blue)' }} />
-              <h3>Transport Blockchain Milestones</h3>
-            </div>
-            <p style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '0.75rem', marginTop: '0.25rem' }}>
-              Notarize transport lifecycle milestones directly to Hyperledger Fabric Blockchain:
-            </p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-              <button 
-                className="btn btn-ghost" 
-                onClick={() => sim.triggerMilestone('TRANSPORT_CREATED')}
-                style={{ fontSize: '0.75rem', justifyContent: 'flex-start', background: 'rgba(59, 130, 246, 0.12)', borderColor: 'rgba(59, 130, 246, 0.3)', color: '#60a5fa' }}
-              >
-                <Package size={14} /> TRANSPORT_CREATED
-              </button>
-              <button 
-                className="btn btn-ghost" 
-                onClick={() => sim.triggerMilestone('TRANSPORT_DISPATCHED')}
-                style={{ fontSize: '0.75rem', justifyContent: 'flex-start', background: 'rgba(168, 85, 247, 0.12)', borderColor: 'rgba(168, 85, 247, 0.3)', color: '#c084fc' }}
-              >
-                <Truck size={14} /> TRANSPORT_DISPATCHED
-              </button>
-              <button 
-                className="btn btn-ghost" 
-                onClick={() => sim.triggerMilestone('TRANSPORT_ARRIVED')}
-                style={{ fontSize: '0.75rem', justifyContent: 'flex-start', background: 'rgba(245, 158, 11, 0.12)', borderColor: 'rgba(245, 158, 11, 0.3)', color: '#fbbf24' }}
-              >
-                <Activity size={14} /> TRANSPORT_ARRIVED
-              </button>
-              <button 
-                className="btn btn-ghost" 
-                onClick={() => sim.triggerMilestone('TRANSPORT_COMPLETED')}
-                style={{ fontSize: '0.75rem', justifyContent: 'flex-start', background: 'rgba(16, 185, 129, 0.12)', borderColor: 'rgba(16, 185, 129, 0.3)', color: '#34d399' }}
-              >
-                <CheckCircle2 size={14} /> TRANSPORT_COMPLETED
-              </button>
-            </div>
-          </motion.div>
-
-          {/* Live Overrides */}
-          <motion.div className={`glass-panel ${styles.controlCard}`} initial={{ opacity:0, y:16 }} animate={{ opacity:1, y:0 }} transition={{ delay:0.15 }}>
-            <div className={styles.cardHead}>
-              <Settings size={16} style={{ color:'var(--brand-purple)' }} />
-              <h3>Live Overrides</h3>
-              {sim.isManualMode && (
-                <button 
-                  onClick={sim.releaseManual} 
-                  className="badge badge-warning" 
-                  style={{ marginLeft: 'auto', fontSize: '9px', border: '1px solid rgba(251,191,36,0.5)', padding: '2px 8px', cursor: 'pointer' }}
-                >
-                  Manual Control: Active [Release]
-                </button>
-              )}
-            </div>
-            <div className={styles.overrideList}>
-              <div className={styles.overrideRow}>
-                <label className={styles.overrideLabel}>Force Temp (°C)</label>
-                <input type="range" className={styles.slider} min="0" max="15" step="0.5"
-                  value={sim.currentTemp}
-                  onChange={e => sim.overrideTemp(parseFloat(e.target.value))}
-                  disabled={!sim.running}
-                />
-                <span className={`mono ${styles.overrideVal}`}>{sim.currentTemp}°C</span>
-              </div>
-              <div className={styles.overrideRow}>
-                <label className={styles.overrideLabel}>Force Battery (%)</label>
-                <input type="range" className={styles.slider} min="0" max="100" step="1"
-                  value={sim.currentBattery}
-                  onChange={e => sim.overrideBattery(parseFloat(e.target.value))}
-                  disabled={!sim.running}
-                />
-                <span className={`mono ${styles.overrideVal}`}>{sim.currentBattery}%</span>
-              </div>
-              <div className={styles.overrideRow}>
-                <label className={styles.overrideLabel}>Force Tamper (Lid Open)</label>
-                <input type="checkbox"
-                  checked={sim.isTamperedMode}
-                  onChange={e => sim.overrideTamper(e.target.checked)}
-                  disabled={!sim.running}
-                  style={{ cursor: 'pointer', margin: '0 8px', width: '16px', height: '16px', accentColor: 'var(--brand-red)' }}
-                />
-                <span className={`mono ${styles.overrideVal}`} style={{ color: sim.isTamperedMode ? 'var(--status-critical)' : 'var(--text-secondary)' }}>
-                  {sim.isTamperedMode ? 'TAMPERED' : 'SECURE'}
-                </span>
-              </div>
-            </div>
-          </motion.div>
-
-          {/* Live Gauges */}
-          <motion.div className={`glass-panel ${styles.gaugeCard}`} initial={{ opacity:0, y:16 }} animate={{ opacity:1, y:0 }} transition={{ delay:0.2 }}>
-            <div className={styles.cardHead}>
-              <Zap size={16} style={{ color:'var(--brand-green)' }} />
-              <h3>Live Telemetry</h3>
-            </div>
-
-            {!t ? (
-              <p className={styles.waiting}>Start simulation to see live telemetry…</p>
-            ) : (
-              <div className={styles.gaugeList}>
-                <GaugeBar
-                  label="Temperature" value={t.temperature} max={15} unit="°C"
-                  color="var(--brand-blue)" icon={Thermometer}
-                  warn={6} critical={8}
-                />
-                <GaugeBar
-                  label="Battery" value={t.batteryLevel} max={100} unit="%"
-                  color="var(--brand-green)" icon={Battery}
-                />
-                <div className={styles.locationRow}>
-                  <MapPin size={14} style={{ color:'var(--brand-purple)' }} />
-                  <span className={styles.locationLabel}>GPS</span>
-                  <span className={`mono ${styles.locationVal}`}>
-                    {t.lat?.toFixed(4)}°N, {t.lng?.toFixed(4)}°E
-                  </span>
+          return (
+            <motion.div
+              key={step.id}
+              initial={{ opacity: 0, x: -16 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: idx * 0.04 }}
+              onClick={() => !executing && setCurrentStep(idx)}
+              style={{
+                border: `1px solid ${isActive ? step.color + '80' : isDone ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.05)'}`,
+                borderRadius: '12px',
+                padding: '12px 14px',
+                cursor: 'pointer',
+                background: isActive
+                  ? `${step.color}14`
+                  : isDone
+                  ? 'rgba(255,255,255,0.02)'
+                  : 'rgba(15,23,42,0.5)',
+                transition: 'all 0.2s',
+                opacity: idx > currentStep + 2 ? 0.5 : 1,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                {/* Step indicator */}
+                <div style={{
+                  width: '32px', height: '32px', borderRadius: '50%', flexShrink: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: isDone ? '#10b981' : isActive ? step.color : 'rgba(255,255,255,0.08)',
+                  border: `2px solid ${isDone ? '#10b981' : isActive ? step.color : 'rgba(255,255,255,0.1)'}`,
+                  boxShadow: isActive ? `0 0 12px ${step.color}60` : 'none',
+                }}>
+                  {isDone
+                    ? <CheckCircle2 size={16} color="#fff" />
+                    : <Icon size={15} color={isActive ? '#fff' : '#64748b'} />
+                  }
                 </div>
-                <AnimatePresence>
-                  {t.tampered && (
-                    <motion.div
-                      className={styles.alertBanner}
-                      initial={{ opacity:0, scale:0.9 }} animate={{ opacity:1, scale:1 }} exit={{ opacity:0 }}
+
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
+                    <span style={{ fontSize: '0.7rem', color: '#475569', fontFamily: 'monospace' }}>Step {idx + 1}</span>
+                    {isDone && result?.blockIndex != null && (
+                      <span style={{ fontSize: '0.65rem', background: 'rgba(16,185,129,0.2)', color: '#34d399', padding: '1px 6px', borderRadius: '4px', fontFamily: 'monospace' }}>
+                        Block #{result.blockIndex}
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ fontWeight: 700, fontSize: '0.85rem', color: isActive ? '#f8fafc' : '#cbd5e1', marginBottom: '4px' }}>
+                    {step.label}
+                  </div>
+                  {isActive && (
+                    <motion.p
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      style={{ fontSize: '0.75rem', color: '#94a3b8', margin: 0, lineHeight: 1.5 }}
                     >
-                      <AlertTriangle size={16} /> TAMPER ALERT — Device integrity compromised!
-                    </motion.div>
+                      {step.description}
+                    </motion.p>
                   )}
-                  {t.spiked && (
-                    <motion.div
-                      className={`${styles.alertBanner} ${styles.alertTemp}`}
-                      initial={{ opacity:0, scale:0.9 }} animate={{ opacity:1, scale:1 }} exit={{ opacity:0 }}
-                    >
-                      <Thermometer size={16} /> TEMPERATURE SPIKE — Organ viability at risk!
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                  <div style={{ fontSize: '0.65rem', color: '#475569', fontFamily: 'monospace', marginTop: '4px' }}>
+                    {step.eventType}
+                  </div>
+                </div>
+
+                {/* Execute button */}
+                {isActive && (
+                  <motion.button
+                    initial={{ scale: 0.9 }}
+                    animate={{ scale: 1 }}
+                    whileHover={{ scale: 1.04 }}
+                    whileTap={{ scale: 0.96 }}
+                    onClick={(e) => { e.stopPropagation(); executeStep(step); }}
+                    disabled={executing}
+                    style={{
+                      flexShrink: 0,
+                      background: `linear-gradient(135deg, ${step.color}, ${step.color}bb)`,
+                      border: 'none',
+                      borderRadius: '10px',
+                      padding: '8px 14px',
+                      color: '#0f172a',
+                      fontWeight: 700,
+                      fontSize: '0.75rem',
+                      cursor: executing ? 'not-allowed' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      opacity: executing ? 0.6 : 1,
+                      boxShadow: `0 4px 14px ${step.color}50`,
+                    }}
+                  >
+                    {executing ? <RefreshCcw size={13} className={styles.spinning} /> : <Play size={13} fill="#0f172a" />}
+                    {executing ? 'Writing…' : 'Notarize'}
+                  </motion.button>
+                )}
               </div>
-            )}
-          </motion.div>
+            </motion.div>
+          );
+        })}
+      </div>
 
-          {/* Config panel */}
-          <motion.div className={`glass-panel ${styles.configCard}`} initial={{ opacity:0, y:16 }} animate={{ opacity:1, y:0 }} transition={{ delay:0.3 }}>
-            <div className={styles.cardHead}>
-              <Settings size={16} style={{ color:'var(--text-secondary)' }} />
-              <h3>Configuration</h3>
-              <button
-                className={`btn btn-ghost ${styles.editBtn}`}
-                onClick={() => { setDraft({...cfg}); setEditing(e => !e); }}
-                disabled={sim.running}
-              >
-                {editing ? 'Cancel' : 'Edit'}
-              </button>
-            </div>
+      {/* ── RIGHT: Live Controls + Log ─────────────────── */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', position: 'sticky', top: '1rem' }}>
 
-            <AnimatePresence>
-              {editing ? (
-                <motion.div className={styles.configForm}
-                  initial={{ opacity:0, height:0 }} animate={{ opacity:1, height:'auto' }} exit={{ opacity:0, height:0 }}>
-                  {[
-                    { key:'boxId',       label:'Box ID',            type:'text' },
-                    { key:'deviceSecret',label:'Device Secret',     type:'password' },
-                    { key:'missionId',   label:'Mission ID',        type:'text' },
-                    { key:'interval',    label:'Interval (seconds)',type:'number', min:2, max:60 },
-                    { key:'tempTarget',  label:'Target Temp (°C)',  type:'number', step:0.5 },
-                    { key:'tempSpike',   label:'Spike Chance (%)',  type:'number', min:0, max:100 },
-                    { key:'batteryDrain',label:'Battery Drain/tick',type:'number', step:0.1, min:0 },
-                  ].map(f => (
-                    <div key={f.key} className={styles.formRow}>
-                      <label className={styles.formLabel}>{f.label}</label>
-                      <input
-                        className={`input-field ${styles.formInput}`}
-                        type={f.type}
-                        value={draft[f.key]}
-                        min={f.min} max={f.max} step={f.step}
-                        onChange={e => setDraft(d => ({ ...d, [f.key]: f.type === 'number' ? parseFloat(e.target.value)||0 : e.target.value }))}
-                      />
-                    </div>
-                  ))}
-                  <button className="btn btn-primary" onClick={applyConfig} style={{ marginTop: 'var(--sp-3)', width:'100%', justifyContent:'center' }}>
-                    <ChevronRight size={16} /> Apply & Reset
-                  </button>
-                </motion.div>
+        {/* IoT Controls */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="glass-panel"
+          style={{ padding: '1rem' }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', borderBottom: '1px solid rgba(255,255,255,0.07)', paddingBottom: '10px' }}>
+            <Cpu size={14} style={{ color: '#f59e0b' }} />
+            <span style={{ fontWeight: 700, fontSize: '0.85rem', color: '#f8fafc' }}>Live IoT Controls</span>
+            <div style={{ marginLeft: 'auto', display: 'flex', gap: '6px' }}>
+              {!sim.running ? (
+                <button onClick={sim.start}
+                  style={{ background: '#10b981', border: 'none', borderRadius: '7px', padding: '5px 12px', color: '#0f172a', fontWeight: 700, fontSize: '0.72rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <Play size={11} fill="#0f172a" /> Start
+                </button>
               ) : (
-                <motion.div className={styles.configList}
-                  initial={{ opacity:0 }} animate={{ opacity:1 }}>
-                  {[
-                    ['Box ID',       cfg.boxId],
-                    ['Mission ID',   cfg.missionId],
-                    ['Interval',     `${cfg.interval}s`],
-                    ['Target Temp',  `${cfg.tempTarget}°C`],
-                    ['Spike Chance', `${cfg.tempSpike}%`],
-                    ['Battery Drain',`${cfg.batteryDrain}%/tick`],
-                  ].map(([k,v]) => (
-                    <div key={k} className={styles.configRow}>
-                      <span className={styles.configKey}>{k}</span>
-                      <span className={`mono ${styles.configVal}`}>{v}</span>
-                    </div>
-                  ))}
-                </motion.div>
+                <button onClick={sim.stop}
+                  style={{ background: '#ef4444', border: 'none', borderRadius: '7px', padding: '5px 12px', color: '#fff', fontWeight: 700, fontSize: '0.72rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <Square size={11} fill="#fff" /> Stop
+                </button>
               )}
-            </AnimatePresence>
-          </motion.div>
-        </div>
-
-        {/* ── RIGHT COLUMN – Log Console ─────────── */}
-        <motion.div className={`glass-panel ${styles.console}`} initial={{ opacity:0, x:20 }} animate={{ opacity:1, x:0 }} transition={{ delay:0.2 }}>
-          <div className={styles.consoleHead}>
-            <div className={styles.consoleDots}>
-              <span style={{ background:'#f87171' }} />
-              <span style={{ background:'#fbbf24' }} />
-              <span style={{ background:'#22d3a0' }} />
             </div>
-            <span className={styles.consoleName}>simulator.log — live output</span>
-            {sim.running && <span className="live-dot" style={{ marginLeft:'auto' }} />}
           </div>
 
-          <div className={`${styles.logBody} panel-scroll`}>
-            {sim.logs.length === 0 ? (
-              <p className={styles.logEmpty}>Awaiting simulation start…</p>
-            ) : (
-              <AnimatePresence initial={false}>
-                {sim.logs.map(e => (
-                  <motion.div key={e.id} initial={{ opacity:0, x:-8 }} animate={{ opacity:1, x:0 }}>
-                    <LogLine entry={e} />
-                  </motion.div>
-                ))}
-              </AnimatePresence>
+          {/* Telemetry Gauges */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '14px' }}>
+            <GaugeBar label="Temperature" value={t?.temperature ?? sim.currentTemp} max={15} unit="°C" color="#60a5fa" icon={Thermometer} warn={6} critical={8} />
+            <GaugeBar label="Battery" value={t?.batteryLevel ?? sim.currentBattery} max={100} unit="%" color="#34d399" icon={Battery} />
+          </div>
+
+          {/* Tamper Status */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 10px', borderRadius: '8px', background: sim.isTamperedMode ? 'rgba(239,68,68,0.12)' : 'rgba(255,255,255,0.04)', border: `1px solid ${sim.isTamperedMode ? 'rgba(239,68,68,0.3)' : 'rgba(255,255,255,0.07)'}`, marginBottom: '10px' }}>
+            {sim.isTamperedMode ? <Unlock size={14} style={{ color: '#ef4444' }} /> : <Lock size={14} style={{ color: '#34d399' }} />}
+            <span style={{ fontSize: '0.75rem', color: sim.isTamperedMode ? '#f87171' : '#34d399', fontWeight: 700, flex: 1 }}>
+              {sim.isTamperedMode ? 'TAMPERED — Lid Open!' : 'SECURE — Box Sealed'}
+            </span>
+          </div>
+
+          {/* Sliders */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {/* Temp slider */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: '#64748b', marginBottom: '4px' }}>
+                <span>Force Temp (°C)</span>
+                <span style={{ fontFamily: 'monospace', color: sim.currentTemp > 8 ? '#ef4444' : sim.currentTemp > 6 ? '#f59e0b' : '#34d399' }}>{sim.currentTemp}°C</span>
+              </div>
+              <input type="range" min="0" max="15" step="0.5"
+                value={sim.currentTemp}
+                onChange={e => sim.overrideTemp(parseFloat(e.target.value))}
+                disabled={!sim.running}
+                style={{ width: '100%', cursor: sim.running ? 'pointer' : 'not-allowed', accentColor: '#60a5fa' }}
+              />
+            </div>
+
+            {/* Battery slider */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: '#64748b', marginBottom: '4px' }}>
+                <span>Force Battery (%)</span>
+                <span style={{ fontFamily: 'monospace', color: sim.currentBattery < 20 ? '#ef4444' : '#34d399' }}>{sim.currentBattery}%</span>
+              </div>
+              <input type="range" min="0" max="100" step="1"
+                value={sim.currentBattery}
+                onChange={e => sim.overrideBattery(parseFloat(e.target.value))}
+                disabled={!sim.running}
+                style={{ width: '100%', cursor: sim.running ? 'pointer' : 'not-allowed', accentColor: '#34d399' }}
+              />
+            </div>
+
+            {/* Tamper toggle */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.7rem', color: '#64748b' }}>
+              <span>Force Tamper (Lid Open)</span>
+              <input type="checkbox"
+                checked={sim.isTamperedMode}
+                onChange={e => sim.overrideTamper(e.target.checked)}
+                disabled={!sim.running}
+                style={{ cursor: sim.running ? 'pointer' : 'not-allowed', width: '16px', height: '16px', accentColor: '#ef4444' }}
+              />
+            </div>
+
+            {sim.isManualMode && (
+              <button onClick={sim.releaseManual}
+                style={{ background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.3)', color: '#fbbf24', borderRadius: '6px', padding: '5px', fontSize: '0.7rem', fontWeight: 600, cursor: 'pointer', textAlign: 'center' }}>
+                Manual Override Active — Release
+              </button>
             )}
+          </div>
+        </motion.div>
+
+        {/* Completed chain summary */}
+        {completedSteps.size > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="glass-panel"
+            style={{ padding: '0.85rem' }}
+          >
+            <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 600, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              Blockchain Records Written
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              {steps.filter(s => completedSteps.has(s.id)).map(s => {
+                const result = stepResult[s.id];
+                const Icon = s.icon;
+                return (
+                  <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.72rem' }}>
+                    <Icon size={11} style={{ color: s.color, flexShrink: 0 }} />
+                    <span style={{ color: '#cbd5e1', flex: 1 }}>{s.label}</span>
+                    {result?.blockIndex != null && (
+                      <span style={{ fontFamily: 'monospace', color: '#34d399' }}>#{result.blockIndex}</span>
+                    )}
+                    <CheckCircle2 size={11} style={{ color: '#10b981' }} />
+                  </div>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
+
+        {/* Log Console */}
+        <motion.div
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.2 }}
+          className="glass-panel"
+          style={{ padding: 0, overflow: 'hidden' }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'rgba(0,0,0,0.2)' }}>
+            <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#f87171' }} />
+            <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#fbbf24' }} />
+            <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#22d3a0' }} />
+            <span style={{ fontSize: '0.72rem', color: '#475569', marginLeft: '4px', fontFamily: 'monospace' }}>simulator.log</span>
+            {sim.running && <span className="live-dot" style={{ marginLeft: 'auto' }} />}
+          </div>
+          <div style={{ height: '200px', overflowY: 'auto', padding: '10px 14px', display: 'flex', flexDirection: 'column-reverse', gap: '1px' }}>
+            {sim.logs.length === 0
+              ? <p style={{ color: '#475569', fontSize: '0.75rem', margin: 0 }}>Awaiting simulation start…</p>
+              : sim.logs.map(e => <LogLine key={e.id} entry={e} />)
+            }
           </div>
         </motion.div>
       </div>

@@ -16,7 +16,7 @@ export const getEntityHistory = async (req, res, next) => {
 
 export const getAllBlocks = async (req, res, next) => {
   try {
-    const blocks = await LedgerBlock.find().sort({ blockIndex: -1 }).limit(100);
+    const blocks = await LedgerBlock.find().sort({ blockIndex: -1 }).limit(200);
     res.status(200).json({ success: true, data: blocks });
   } catch (error) {
     next(error);
@@ -27,7 +27,6 @@ export const verifyLedger = async (req, res, next) => {
   try {
     const adapter = getBlockchainAdapter();
     const verificationResult = await adapter.verify();
-    
     res.status(200).json(verificationResult);
   } catch (error) {
     next(error);
@@ -53,6 +52,37 @@ export const verifyBlock = async (req, res, next) => {
       proofs: {
         arweaveTxId: `mock-arweave-${block.hash}`,
         expectedPayloadSHA256,
+        timestamp: block.timestamp,
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * POST /api/v1/audit/notarize
+ * Direct blockchain write — used by IoT Simulator sequential workflow.
+ * Body: { eventType, entityType, entityId, payload }
+ */
+export const notarizeBlock = async (req, res, next) => {
+  try {
+    const { eventType, entityType = 'TransportMission', entityId = 'TRN-2026-001', payload = {} } = req.body;
+
+    if (!eventType) {
+      return res.status(400).json({ success: false, message: 'eventType is required' });
+    }
+
+    const adapter = getBlockchainAdapter();
+    const block = await adapter.append(eventType, entityType, entityId.toString(), payload);
+
+    res.status(201).json({
+      success: true,
+      block: {
+        blockIndex: block.blockIndex,
+        hash: block.hash,
+        previousHash: block.previousHash,
+        eventType: block.eventType,
         timestamp: block.timestamp,
       }
     });
