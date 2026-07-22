@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, Circle, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Activity, Thermometer, Battery, Navigation,
-  AlertTriangle, CheckCircle2, MapPin, Clock, RefreshCw
+  AlertTriangle, CheckCircle2, MapPin, RefreshCw
 } from 'lucide-react';
 import { getLiveMission } from '../services/api';
 import { useSocket } from '../context/SocketContext';

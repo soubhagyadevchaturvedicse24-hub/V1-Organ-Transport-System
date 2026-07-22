@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
-  BarChart3, TrendingUp, TrendingDown, Heart, Plane,
+  BarChart3, Heart, Plane,
   Building2, GitMerge, ShieldCheck, Activity, RefreshCw,
-  CheckCircle2, XCircle, Clock, Zap, Target, Award
+  CheckCircle2, Clock, Zap, Target, Award
 } from 'lucide-react';
 import {
   getHospitals, getDonors, getOrgans, getMissions,
