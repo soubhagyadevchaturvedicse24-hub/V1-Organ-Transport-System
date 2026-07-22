@@ -1,31 +1,92 @@
-import { useState, useEffect } from 'react';
-import { Bell, Search } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Bell, Search, AlertTriangle, Activity, ShieldCheck, Check, Trash2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useSimulatorContext } from '../context/SimulatorContext';
 import styles from './Topbar.module.css';
 
 const Topbar = () => {
   const [time, setTime] = useState(new Date());
   const { user } = useAuth();
+  const simContext = useSimulatorContext();
 
+  const [notifications, setNotifications] = useState([
+    {
+      id: 1,
+      title: 'System Active',
+      message: 'Organ transport logistics platform initialized.',
+      type: 'info',
+      time: 'Just now',
+      read: false
+    }
+  ]);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(1);
+  const lastHealthRef = useRef('NORMAL');
+
+  // Live Clock
   useEffect(() => {
     const id = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(id);
   }, []);
 
+  // Listen to simulator telemetry changes & health state
+  useEffect(() => {
+    if (!simContext?.telemetry) return;
+    const { temperature, tampered, spiked, batteryLevel } = simContext.telemetry;
+
+    let currentHealth = 'NORMAL';
+    if (tampered || batteryLevel < 20) {
+      currentHealth = 'CRITICAL';
+    } else if (temperature > 8.0 || temperature < 2.0 || spiked) {
+      currentHealth = 'WARNING';
+    }
+
+    if (currentHealth !== lastHealthRef.current) {
+      lastHealthRef.current = currentHealth;
+
+      const newNotif = {
+        id: Date.now(),
+        title: currentHealth === 'CRITICAL' ? '⚠️ CRITICAL HEALTH ALERT' : currentHealth === 'WARNING' ? '⚡ HEALTH WARNING' : '✅ Health Normal',
+        message: currentHealth === 'CRITICAL' 
+          ? `Box tamper or low battery (${batteryLevel}%) detected!`
+          : currentHealth === 'WARNING'
+          ? `Temperature out of safe bounds (${temperature}°C)!`
+          : `Transport health restored to normal parameters.`,
+        type: currentHealth === 'CRITICAL' ? 'error' : currentHealth === 'WARNING' ? 'warning' : 'success',
+        time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        read: false
+      };
+
+      setNotifications(prev => [newNotif, ...prev].slice(0, 25));
+      setUnreadCount(c => c + 1);
+    }
+  }, [simContext?.telemetry]);
+
   const fmt = (n) => String(n).padStart(2, '0');
   const timeStr = `${fmt(time.getHours())}:${fmt(time.getMinutes())}:${fmt(time.getSeconds())}`;
   const dateStr = time.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 
-  // Get initials
   const getInitials = (name) => {
     if (!name) return 'U';
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   };
 
-  // Format role string nicely
   const formatRole = (role) => {
     if (!role) return 'User';
     return role.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+  };
+
+  const handleToggleNotifications = () => {
+    setShowNotifications(!showNotifications);
+    if (!showNotifications) {
+      setUnreadCount(0);
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    }
+  };
+
+  const handleClearNotifications = () => {
+    setNotifications([]);
+    setUnreadCount(0);
   };
 
   return (
@@ -47,11 +108,56 @@ const Topbar = () => {
           <div style={{ color: 'var(--text-muted)', fontSize: '0.68rem' }}>{dateStr}</div>
         </div>
 
-        {/* Notifications */}
-        <button className={styles.iconBtn} title="Notifications">
-          <Bell size={16} />
-          <span className={styles.badge}>0</span>
-        </button>
+        {/* Notifications Button & Dropdown */}
+        <div className={styles.notifWrapper}>
+          <button 
+            className={styles.iconBtn} 
+            title="Notifications"
+            onClick={handleToggleNotifications}
+          >
+            <Bell size={16} />
+            {unreadCount > 0 && <span className={styles.badge}>{unreadCount}</span>}
+          </button>
+
+          {showNotifications && (
+            <div className={styles.notifDropdown}>
+              <div className={styles.notifHeader}>
+                <div className={styles.notifHeaderTitle}>
+                  <Bell size={15} />
+                  <span>Notifications Center</span>
+                </div>
+                {notifications.length > 0 && (
+                  <button className={styles.btnClear} onClick={handleClearNotifications} title="Clear All">
+                    <Trash2 size={13} />
+                    <span>Clear</span>
+                  </button>
+                )}
+              </div>
+
+              <div className={styles.notifList}>
+                {notifications.length === 0 ? (
+                  <div className={styles.notifEmpty}>No new notifications</div>
+                ) : (
+                  notifications.map(n => (
+                    <div key={n.id} className={`${styles.notifItem} ${styles[n.type]}`}>
+                      <div className={styles.notifIcon}>
+                        {n.type === 'error' && <AlertTriangle size={15} color="#ef4444" />}
+                        {n.type === 'warning' && <Activity size={15} color="#f59e0b" />}
+                        {n.type === 'success' && <Check size={15} color="#10b981" />}
+                        {n.type === 'info' && <ShieldCheck size={15} color="#3b82f6" />}
+                      </div>
+                      <div className={styles.notifContent}>
+                        <div className={styles.notifItemTitle}>{n.title}</div>
+                        <div className={styles.notifItemMessage}>{n.message}</div>
+                        <div className={styles.notifItemTime}>{n.time}</div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
 
         <div className={styles.divider} />
 

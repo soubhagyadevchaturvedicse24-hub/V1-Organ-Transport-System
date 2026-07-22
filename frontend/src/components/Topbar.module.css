@@ -10,8 +10,9 @@
   border: 1px solid var(--glass-border);
   border-radius: var(--r-xl);
   box-shadow: var(--shadow-sm);
-  z-index: 10;
+  z-index: 100;
   flex-shrink: 0;
+  position: relative;
 }
 
 /* ── Search ─────────────────────────── */
@@ -44,6 +45,10 @@
 /* ── Right actions ──────────────────── */
 .actions { display: flex; align-items: center; gap: var(--sp-4); }
 
+.notifWrapper {
+  position: relative;
+}
+
 .iconBtn {
   position: relative;
   width: 36px; height: 36px;
@@ -52,6 +57,7 @@
   border: 1px solid var(--glass-border);
   display: flex; align-items: center; justify-content: center;
   color: var(--text-secondary);
+  cursor: pointer;
   transition: all var(--t-fast);
 }
 .iconBtn:hover {
@@ -70,6 +76,121 @@
   display: flex; align-items: center; justify-content: center;
   border-radius: 50%;
   border: 2px solid var(--bg-secondary);
+  animation: pulse 1s infinite alternate;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); }
+  100% { transform: scale(1.15); }
+}
+
+/* Notification Center Dropdown */
+.notifDropdown {
+  position: absolute;
+  top: 48px;
+  right: 0;
+  width: 320px;
+  background: rgba(15, 23, 42, 0.95);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--r-lg);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  z-index: 1000;
+  overflow: hidden;
+}
+
+.notifHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.notifHeaderTitle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.btnClear {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.btnClear:hover {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.notifList {
+  display: flex;
+  flex-direction: column;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.notifEmpty {
+  padding: 2rem;
+  text-align: center;
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
+.notifItem {
+  display: flex;
+  gap: 0.6rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  transition: background 0.2s ease;
+}
+
+.notifItem:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.notifIcon {
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.notifContent {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.notifItemTitle {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #f1f5f9;
+}
+
+.notifItemMessage {
+  font-size: 0.75rem;
+  color: #cbd5e1;
+  line-height: 1.35;
+}
+
+.notifItemTime {
+  font-size: 0.65rem;
+  color: #64748b;
+  margin-top: 2px;
 }
 
 /* ── Time display ───────────────────── */

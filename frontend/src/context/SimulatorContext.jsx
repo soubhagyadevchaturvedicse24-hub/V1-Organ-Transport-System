@@ -8,9 +8,9 @@ const defaults = {
   missionId:   'TRN-2026-001',
   interval:    5,        // seconds
   tempTarget:  4.0,      // target temperature
-  tempSpike:   0.08,     // 8% chance of temp anomaly per tick
-  tamperChance:0.04,     // 4% chance of lid open per tick
-  batteryDrain:0.5,      // battery level drain per tick
+  tempSpike:   0.0,      // NO automatic random temp spikes (user controlled only)
+  tamperChance:0.0,      // NO automatic random lid open (user controlled only)
+  batteryDrain:0.1,      // minimal battery drain per tick
   startLat:    28.5659,
   startLng:    77.2090,
 };
