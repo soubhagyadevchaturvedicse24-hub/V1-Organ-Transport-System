@@ -8,5 +8,6 @@ const router = express.Router();
 router.use(requireDeviceAuth);
 
 router.post('/telemetry', deviceController.postTelemetry);
+router.post('/milestone', deviceController.triggerMilestone);
 
 export default router;

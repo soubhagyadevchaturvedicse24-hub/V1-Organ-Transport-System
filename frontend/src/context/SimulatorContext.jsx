@@ -189,13 +189,45 @@ export const SimulatorProvider = ({ children }) => {
     tick();
   }, [addLog, tick]);
 
+  const triggerMilestone = useCallback(async (milestone) => {
+    addLog('info', `⚡ Triggering Milestone: ${milestone}`);
+    try {
+      const getBaseUrl = () => {
+        if (import.meta.env.VITE_API_BASE_URL) return import.meta.env.VITE_API_BASE_URL;
+        if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+          return 'http://localhost:5000/api/v1';
+        }
+        return 'https://v1-organ-transport-system.onrender.com/api/v1';
+      };
+
+      const API = getBaseUrl();
+      const res = await fetch(`${API}/device/milestone`, {
+        method: 'POST',
+        headers: {
+          'Content-Type':   'application/json',
+          'x-device-id':    cfg.boxId,
+          'x-device-secret':cfg.deviceSecret,
+        },
+        body: JSON.stringify({ milestone, missionId: cfg.missionId }),
+      });
+
+      if (res.ok) {
+        addLog('success', `✓ Blockchain Notarized Milestone: ${milestone}`);
+      } else {
+        addLog('warn', `✗ Milestone rejected [${res.status}]`);
+      }
+    } catch (err) {
+      addLog('error', `✗ Milestone error — ${err.message}`);
+    }
+  }, [cfg, addLog]);
+
   useEffect(() => () => clearInterval(timerRef.current), []);
 
   return (
     <SimulatorContext.Provider value={{
       cfg, setCfg, running, telemetry, logs, ticks, connected, isManualMode, isTamperedMode, defaults,
       currentTemp, currentBattery,
-      start, stop, reset, overrideTemp, overrideBattery, overrideTamper, releaseManual
+      start, stop, reset, overrideTemp, overrideBattery, overrideTamper, releaseManual, triggerMilestone
     }}>
       {children}
     </SimulatorContext.Provider>

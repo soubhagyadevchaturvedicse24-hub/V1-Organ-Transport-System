@@ -3,16 +3,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Cpu, Play, Square, RotateCcw, Thermometer, Battery,
   AlertTriangle, Wifi, WifiOff, Settings,
-  MapPin, Zap, ChevronRight, Activity
+  MapPin, Zap, ChevronRight, Activity, Send, Package, Truck, CheckCircle2
 } from 'lucide-react';
 import { useSimulatorContext } from '../context/SimulatorContext';
 import styles from './SimulatorPage.module.css';
 
 const clamp = (v, mn, mx) => Math.max(mn, Math.min(mx, v));
 
-/* ════════════════════════════════════════════════════
-   Sub-components
-   ════════════════════════════════════════════════════ */
 const GaugeBar = ({ label, value, max, unit, color, icon: Icon, warn, critical }) => {
   const pct = clamp((value / max) * 100, 0, 100);
   const isWarn = warn != null && value > warn;
@@ -57,16 +54,12 @@ const LogLine = ({ entry }) => {
   );
 };
 
-/* ════════════════════════════════════════════════════
-   Main Page
-   ════════════════════════════════════════════════════ */
 const SimulatorPage = () => {
   const sim = useSimulatorContext();
   const cfg = sim.cfg;
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({ ...cfg });
 
-  // Sync draft if config updates globally
   useEffect(() => {
     setDraft({ ...cfg });
   }, [cfg]);
@@ -138,6 +131,47 @@ const SimulatorPage = () => {
                 <span className={styles.statVal} style={{ color:'var(--brand-amber)' }}>{cfg.boxId}</span>
                 <span className={styles.statLbl}>Box ID</span>
               </div>
+            </div>
+          </motion.div>
+
+          {/* Transport Blockchain Milestones (Requested) */}
+          <motion.div className={`glass-panel ${styles.controlCard}`} initial={{ opacity:0, y:16 }} animate={{ opacity:1, y:0 }} transition={{ delay:0.12 }}>
+            <div className={styles.cardHead}>
+              <Send size={16} style={{ color:'var(--brand-blue)' }} />
+              <h3>Transport Blockchain Milestones</h3>
+            </div>
+            <p style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '0.75rem', marginTop: '0.25rem' }}>
+              Notarize transport lifecycle milestones directly to Hyperledger Fabric Blockchain:
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+              <button 
+                className="btn btn-ghost" 
+                onClick={() => sim.triggerMilestone('TRANSPORT_CREATED')}
+                style={{ fontSize: '0.75rem', justifyContent: 'flex-start', background: 'rgba(59, 130, 246, 0.12)', borderColor: 'rgba(59, 130, 246, 0.3)', color: '#60a5fa' }}
+              >
+                <Package size={14} /> TRANSPORT_CREATED
+              </button>
+              <button 
+                className="btn btn-ghost" 
+                onClick={() => sim.triggerMilestone('TRANSPORT_DISPATCHED')}
+                style={{ fontSize: '0.75rem', justifyContent: 'flex-start', background: 'rgba(168, 85, 247, 0.12)', borderColor: 'rgba(168, 85, 247, 0.3)', color: '#c084fc' }}
+              >
+                <Truck size={14} /> TRANSPORT_DISPATCHED
+              </button>
+              <button 
+                className="btn btn-ghost" 
+                onClick={() => sim.triggerMilestone('TRANSPORT_ARRIVED')}
+                style={{ fontSize: '0.75rem', justifyContent: 'flex-start', background: 'rgba(245, 158, 11, 0.12)', borderColor: 'rgba(245, 158, 11, 0.3)', color: '#fbbf24' }}
+              >
+                <Activity size={14} /> TRANSPORT_ARRIVED
+              </button>
+              <button 
+                className="btn btn-ghost" 
+                onClick={() => sim.triggerMilestone('TRANSPORT_COMPLETED')}
+                style={{ fontSize: '0.75rem', justifyContent: 'flex-start', background: 'rgba(16, 185, 129, 0.12)', borderColor: 'rgba(16, 185, 129, 0.3)', color: '#34d399' }}
+              >
+                <CheckCircle2 size={14} /> TRANSPORT_COMPLETED
+              </button>
             </div>
           </motion.div>
 
