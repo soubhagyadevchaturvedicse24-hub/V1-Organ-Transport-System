@@ -3,6 +3,7 @@ import { DEVICE_ERRORS } from '../../constants/errorCodes.js';
 import { eventBus } from '../../domain/events/index.js';
 import { TRANSPORT_EVENTS } from '../../domain/events/transport.events.js';
 import { getBlockchainAdapter } from '../../blockchain/adapters/BlockchainAdapterFactory.js';
+import { executeSimulatorStep } from '../../simulator/controllers/simulator.controller.js';
 
 export const postTelemetry = async (req, res, next) => {
   try {
@@ -54,7 +55,22 @@ export const postTelemetry = async (req, res, next) => {
 
 export const triggerMilestone = async (req, res, next) => {
   try {
-    const { milestone, missionId = 'TRN-2026-001', payload = {} } = req.body;
+    const { milestone, stepId } = req.body;
+    const sId = stepId || milestone;
+
+    const simulatorSteps = [
+      'donor_created', 'organ_registered', 'match_accepted',
+      'transport_created', 'transport_dispatched', 'telemetry_normal',
+      'telemetry_alert', 'transport_arrived', 'transport_completed',
+      'DONOR_CREATED', 'ORGAN_REGISTERED', 'MATCH_ACCEPTED'
+    ];
+
+    if (sId && simulatorSteps.includes(sId)) {
+      req.body.stepId = sId.toLowerCase();
+      return executeSimulatorStep(req, res, next);
+    }
+
+    const { missionId = 'TRN-2026-001', payload = {} } = req.body;
     const map = {
       'TRANSPORT_CREATED': TRANSPORT_EVENTS.TRANSPORT_CREATED,
       'TRANSPORT_DISPATCHED': TRANSPORT_EVENTS.TRANSPORT_DISPATCHED,
