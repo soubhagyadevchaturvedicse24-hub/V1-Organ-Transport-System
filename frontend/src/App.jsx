@@ -14,6 +14,7 @@ import DonorConsent from './pages/DonorConsent';
 import HospitalRegistry from './pages/HospitalRegistry';
 import CommitteeApproval from './pages/CommitteeApproval';
 import Analytics from './pages/Analytics';
+import DataEntryHub from './pages/DataEntryHub';
 import './App.css';
 
 function App() {
@@ -34,7 +35,8 @@ function App() {
                 <Route path="donor-consent"     element={<DonorConsent />}      />
                 <Route path="hospital-registry" element={<HospitalRegistry />}  />
                 <Route path="committee"         element={<CommitteeApproval />} />
-                <Route path="analytics"        element={<Analytics />}         />
+                <Route path="analytics"         element={<Analytics />}         />
+                <Route path="data-entry"        element={<DataEntryHub />}      />
                 <Route path="audit"             element={<BlockchainAudit />}   />
                 <Route path="simulator"         element={<SimulatorPage />}     />
               </Route>

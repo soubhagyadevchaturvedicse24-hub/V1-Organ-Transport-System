@@ -40,9 +40,18 @@ const fetchApi = async (endpoint, options = {}) => {
 // --- Endpoints ---
 
 export const getHospitals = () => fetchApi('/hospitals');
+export const createHospital = (data) => fetchApi('/hospitals', { method: 'POST', body: JSON.stringify(data) });
+
 export const getDonors = () => fetchApi('/donors');
+export const createDonor = (data) => fetchApi('/donors', { method: 'POST', body: JSON.stringify(data) });
+
 export const getOrgans = () => fetchApi('/organs');
+export const createOrgan = (data) => fetchApi('/organs', { method: 'POST', body: JSON.stringify(data) });
+
+export const createRecipient = (data) => fetchApi('/recipients', { method: 'POST', body: JSON.stringify(data) });
+
 export const getMissions = () => fetchApi('/transport/missions');
+export const createMission = (data) => fetchApi('/transport/missions', { method: 'POST', body: JSON.stringify(data) });
 export const verifyLedger = () => fetchApi('/audit/verify');
 export const getEntityHistory = (type, id) => fetchApi(`/audit/entity/${type}/${id}`);
 export const getAllBlocks = () => fetchApi('/audit/blocks');
