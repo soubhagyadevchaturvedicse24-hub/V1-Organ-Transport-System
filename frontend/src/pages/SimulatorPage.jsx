@@ -20,8 +20,8 @@ const getBaseUrl = () => {
   return 'https://v1-organ-transport-system.onrender.com/api/v1';
 };
 
-/* Directly write a block to the blockchain with 3-layer fail-safe */
-const notarizeToChain = async (eventType, entityId, payload, deviceId, deviceSecret) => {
+/* Directly execute a step in the backend (DB + Blockchain) with fail-safes */
+const notarizeToChain = async (stepId, eventType, entityId, payload, deviceId, deviceSecret) => {
   const baseUrl = getBaseUrl();
   const headers = {
     'Content-Type': 'application/json',
@@ -29,9 +29,24 @@ const notarizeToChain = async (eventType, entityId, payload, deviceId, deviceSec
     'x-device-secret': deviceSecret || 'secret123',
   };
 
-  // Attempt 1: Direct Audit Notarize
+  // Attempt 1: Full E2E Simulator Execute Step (Creates DB entities + Blockchain block)
   try {
-    const res1 = await fetch(`${baseUrl}/audit/notarize`, {
+    const res1 = await fetch(`${baseUrl}/simulator/execute-step`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        stepId,
+        eventType,
+        entityId,
+        payload,
+      }),
+    });
+    if (res1.ok) return res1;
+  } catch (e) {}
+
+  // Attempt 2: Direct Audit Notarize
+  try {
+    const res2 = await fetch(`${baseUrl}/audit/notarize`, {
       method: 'POST',
       headers,
       body: JSON.stringify({
@@ -41,12 +56,12 @@ const notarizeToChain = async (eventType, entityId, payload, deviceId, deviceSec
         payload,
       }),
     });
-    if (res1.ok) return res1;
+    if (res2.ok) return res2;
   } catch (e) {}
 
-  // Attempt 2: Device Milestone Endpoint
+  // Attempt 3: Device Milestone Endpoint
   try {
-    const res2 = await fetch(`${baseUrl}/device/milestone`, {
+    const res3 = await fetch(`${baseUrl}/device/milestone`, {
       method: 'POST',
       headers,
       body: JSON.stringify({
@@ -57,10 +72,10 @@ const notarizeToChain = async (eventType, entityId, payload, deviceId, deviceSec
         payload,
       }),
     });
-    if (res2.ok) return res2;
+    if (res3.ok) return res3;
   } catch (e) {}
 
-  // Attempt 3: Device Telemetry Endpoint with milestone payload
+  // Attempt 4: Device Telemetry Endpoint with milestone payload
   return await fetch(`${baseUrl}/device/telemetry`, {
     method: 'POST',
     headers,
@@ -318,6 +333,7 @@ const SimulatorPage = () => {
       const payload = step.payload(telemetry);
 
       const res = await notarizeToChain(
+        step.id,
         step.eventType,
         step.entityId,
         payload,
@@ -327,8 +343,10 @@ const SimulatorPage = () => {
 
       if (res.ok) {
         const data = await res.json();
-        addLog('success', `✓ Block #${data.block?.blockIndex ?? '?'} written [${step.eventType}] hash:${(data.block?.hash || '').slice(0,10)}...`);
-        setStepResult(prev => ({ ...prev, [step.id]: { ok: true, blockIndex: data.block?.blockIndex, hash: data.block?.hash } }));
+        const bIdx = data.blockIndex ?? data.block?.blockIndex ?? '?';
+        const bHash = data.hash ?? data.block?.hash ?? '';
+        addLog('success', `✓ Block #${bIdx} registered in DB & Blockchain [${step.eventType}] hash:${(bHash || '').slice(0,10)}...`);
+        setStepResult(prev => ({ ...prev, [step.id]: { ok: true, blockIndex: bIdx, hash: bHash } }));
         setCompletedSteps(prev => new Set([...prev, step.id]));
         if (currentStep === steps.findIndex(s => s.id === step.id)) {
           setCurrentStep(prev => Math.min(prev + 1, steps.length - 1));
