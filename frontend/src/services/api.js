@@ -1,7 +1,15 @@
 // Simplified API layer
 // In a real app, this would handle auth tokens, retries, etc.
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://v1-organ-transport-system.onrender.com/api/v1';
+const getBaseUrl = () => {
+  if (import.meta.env.VITE_API_BASE_URL) return import.meta.env.VITE_API_BASE_URL;
+  if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+    return 'http://localhost:5000/api/v1';
+  }
+  return 'https://v1-organ-transport-system.onrender.com/api/v1';
+};
+
+const BASE_URL = getBaseUrl();
 let token = null;
 
 export const setToken = (newToken) => {
