@@ -7,6 +7,22 @@ import {
 import { getHospitals } from '../services/api';
 import styles from './HospitalRegistry.module.css';
 
+/* Safely extract a displayable string from a value that might be a
+   populated MongoDB sub-document, an ObjectId string, or a plain string. */
+const safeStr = (val, fallback = '—') => {
+  if (val === null || val === undefined) return fallback;
+  if (typeof val === 'string') return val || fallback;
+  if (typeof val === 'number' || typeof val === 'boolean') return String(val);
+  if (typeof val === 'object' && !Array.isArray(val)) {
+    return val.hospitalId || val.name || val._id?.toString() || fallback;
+  }
+  return fallback;
+};
+const safeId = (val, fallback = '000000') => {
+  const s = safeStr(val, fallback);
+  return s === fallback ? fallback : s;
+};
+
 /* Calculate real capability score */
 const getCapabilityScore = (hospital) => {
   const caps = hospital.transplantCapabilities || [];
@@ -74,7 +90,7 @@ const HospitalCard = ({ hospital, idx = 0 }) => {
         </div>
 
         <div className={styles.meta}>
-          <h3 className={styles.name}>{hospital.name || `Hospital #${hospital.hospitalId}`}</h3>
+          <h3 className={styles.name}>{hospital.name || `Hospital #${safeId(hospital.hospitalId)}`}</h3>
           <div className={styles.location}>
             <MapPin size={12} style={{ color: 'var(--text-tertiary)' }} />
             <span>{city}</span>
@@ -93,7 +109,7 @@ const HospitalCard = ({ hospital, idx = 0 }) => {
             <StatusIcon size={13} />
             {cfg.label}
           </div>
-          <span className={styles.regId}>THOTA Reg ID: <strong className="mono">{`REG-${hospital.hospitalId?.slice(-6).toUpperCase() || '000000'}`}</strong></span>
+          <span className={styles.regId}>THOTA Reg ID: <strong className="mono">{`REG-${safeId(hospital.hospitalId).slice(-6).toUpperCase() || '000000'}`}</strong></span>
         </div>
 
         {/* Statutory Checklist */}

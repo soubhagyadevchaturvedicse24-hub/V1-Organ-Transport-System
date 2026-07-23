@@ -37,6 +37,11 @@ const telemetryLogSchema = new mongoose.Schema(
         default: false,
       },
     },
+    arweaveTxId: {
+      type: String,
+      default: null,
+      index: true,
+    },
     timestamp: {
       type: Date,
       default: Date.now,

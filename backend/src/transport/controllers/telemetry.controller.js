@@ -1,7 +1,6 @@
 import crypto from 'crypto';
 import TransportBox from '../../models/TransportBox.js';
 import TransportMission from '../../models/TransportMission.js';
-import TelemetryLog from '../../models/TelemetryLog.js';
 import { logTelemetry } from '../services/telemetry.service.js';
 import logger from '../../logger/index.js';
 
@@ -67,7 +66,7 @@ export const postIngressTelemetry = async (req, res, next) => {
     }
 
     // Map spec payload to our internal service representation
-    const { deviceId, telemetry, gps } = req.body;
+    const { telemetry, gps } = req.body;
     
     // Find active mission for the box
     const activeMission = await TransportMission.findOne({
@@ -77,10 +76,13 @@ export const postIngressTelemetry = async (req, res, next) => {
 
     const missionId = activeMission ? activeMission._id.toString() : 'DEMO_MISSION';
 
+    const arweaveTxIdHeader = req.headers['x-arweave-tx-id'] || req.body.arweaveTxId || null;
+
     const servicePayload = {
       temperature: telemetry.temperature,
       batteryLevel: telemetry.batteryLevel !== undefined ? telemetry.batteryLevel : 95.0, // Default for spec payload which doesn't specify battery
       isTampered: telemetry.reed_latch === 0,
+      arweaveTxId: arweaveTxIdHeader,
       geoLocation: {
         type: 'Point',
         coordinates: [gps.longitude, gps.longitude ? gps.latitude : null].filter(c => c !== null)

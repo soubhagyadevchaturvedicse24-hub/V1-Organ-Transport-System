@@ -1,6 +1,6 @@
 import Irys from '@irys/sdk';
 import crypto from 'crypto';
-import logger from '../../logger/index.js';
+import logger from '../logger/index.js';
 
 /**
  * Generates a random EVM private key.

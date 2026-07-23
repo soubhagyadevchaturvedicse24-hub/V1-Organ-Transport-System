@@ -4,6 +4,7 @@ import { eventBus } from '../../domain/events/index.js';
 import { TRANSPORT_EVENTS } from '../../domain/events/transport.events.js';
 import { getBlockchainAdapter } from '../../blockchain/adapters/BlockchainAdapterFactory.js';
 import { executeSimulatorStep } from '../../simulator/controllers/simulator.controller.js';
+import logger from '../../logger/index.js';
 
 export const postTelemetry = async (req, res, next) => {
   try {
@@ -42,7 +43,9 @@ export const postTelemetry = async (req, res, next) => {
             milestone,
             timestamp: new Date().toISOString(),
           });
-        } catch (e) {}
+        } catch (e) {
+          logger.warn(`Blockchain append notice: ${e.message}`);
+        }
       }
     }
 

@@ -7,6 +7,21 @@ import {
 } from 'recharts';
 import styles from './MatchingQueue.module.css';
 
+/* Safely extract a displayable string from a value that might be a
+   populated MongoDB sub-document, an ObjectId string, or a plain string. */
+const safeStr = (val, fallback = '—') => {
+  if (val === null || val === undefined) return fallback;
+  if (typeof val === 'string') return val || fallback;
+  if (typeof val === 'number' || typeof val === 'boolean') return String(val);
+  if (typeof val === 'object' && !Array.isArray(val)) {
+    return (
+      val.organId || val.recipientId || val.donorId || val.name ||
+      val.hospitalId || val._id?.toString() || fallback
+    );
+  }
+  return fallback;
+};
+
 const MatchingQueue = () => {
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -24,8 +39,8 @@ const MatchingQueue = () => {
                   flatMatches.push({
                     _id: `${match._id}-${rec.recipientId?._id}`, // Keep unique ID for key and expand
                     matchId: match._id,
-                    organId: match.organId?.organId || 'Unknown Organ',
-                    recipientId: rec.recipientId?.recipientId || 'Unknown Recipient',
+                    organId: safeStr(match.organId?.organId, 'Unknown Organ'),
+                    recipientId: safeStr(rec.recipientId?.recipientId, 'Unknown Recipient'),
                     recipientDbId: rec.recipientId?._id,
                     score: rec.score,
                     compatibility: {

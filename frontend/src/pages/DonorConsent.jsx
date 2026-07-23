@@ -8,6 +8,26 @@ import {
 import { getDonors } from '../services/api';
 import styles from './DonorConsent.module.css';
 
+/* Safely extract a displayable string from a value that might be a
+   populated MongoDB sub-document, an ObjectId string, or a plain string. */
+const safeStr = (val, fallback = '—') => {
+  if (val === null || val === undefined) return fallback;
+  if (typeof val === 'string') return val || fallback;
+  if (typeof val === 'number' || typeof val === 'boolean') return String(val);
+  if (typeof val === 'object' && !Array.isArray(val)) {
+    return (
+      val.donorId || val.name || val._id?.toString() || fallback
+    );
+  }
+  return fallback;
+};
+
+/* Get a short ID string safe for display/slicing */
+const safeId = (val, fallback = '000000') => {
+  const s = safeStr(val, fallback);
+  return s === fallback ? fallback : s;
+};
+
 /* ── THOTA Form Status badge ── */
 const CONSENT_STATUS = {
   VERIFIED:   { label: 'Consent Verified',  color: '#22d3a0', bg: 'rgba(34,211,160,0.12)',  Icon: CheckCircle2   },
@@ -58,7 +78,7 @@ const DonorCard = ({ donor, idx }) => {
   const Icon    = cfg.Icon;
   const done    = inferSteps(donor, status);
 
-  const formRef = `FORM5-${donor.donorId?.slice(-6).toUpperCase() || idx}`;
+  const formRef = `FORM5-${safeId(donor.donorId).slice(-6).toUpperCase() || idx}`;
   const age     = donor.age || '—';
   const blood   = donor.bloodType || donor.bloodGroup || '—';
 
@@ -76,11 +96,11 @@ const DonorCard = ({ donor, idx }) => {
         </div>
 
         <div className={styles.donorMeta}>
-          <span className={styles.donorName}>{donor.name || donor.fullName || `Donor #${donor.donorId?.slice(-6)}`}</span>
+          <span className={styles.donorName}>{donor.name || donor.fullName || `Donor #${safeId(donor.donorId).slice(-6)}`}</span>
           <div className={styles.donorTags}>
             <span className={styles.tag}>Age: {age}</span>
             <span className={styles.tag}>Blood: {blood}</span>
-            <span className={styles.tag}>ID: {donor.donorId?.slice(-8)}</span>
+            <span className={styles.tag}>ID: {safeId(donor.donorId).slice(-8)}</span>
           </div>
         </div>
 
@@ -116,7 +136,7 @@ const DonorCard = ({ donor, idx }) => {
               <div className={styles.formRefItem}>
                 <FileText size={14} style={{ color: '#a78bfa' }} />
                 <span className={styles.formRefLabel}>Form 7 Reference</span>
-                <span className={`mono ${styles.formRefValue}`}>FORM7-{donor.donorId?.slice(-6).toUpperCase() || idx}</span>
+                <span className={`mono ${styles.formRefValue}`}>FORM7-{safeId(donor.donorId).slice(-6).toUpperCase() || idx}</span>
                 <span className={styles.formRefStatus} style={{ color: status === 'VERIFIED' ? '#22d3a0' : '#9090b0' }}>
                   {status === 'VERIFIED' ? '✓ Filed' : '— N/A'}
                 </span>
@@ -182,7 +202,7 @@ const DonorConsent = () => {
   }, {});
 
   const filtered = donors.filter(d => {
-    const name = (d.name || d.fullName || d.donorId || '').toLowerCase();
+    const name = (d.name || d.fullName || safeStr(d.donorId, '')).toLowerCase();
     const matchSearch = name.includes(search.toLowerCase());
     const matchFilter = filter === 'ALL' || inferConsentStatus(d) === filter;
     return matchSearch && matchFilter;

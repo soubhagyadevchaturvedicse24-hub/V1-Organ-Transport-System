@@ -82,6 +82,44 @@ class OrganContract extends Contract {
     return historyBytes.toString();
   }
 
+  async RecordArweaveTelemetry(ctx, deviceId, arweaveTxId, signature, payloadHash) {
+    const timestamp = new Date().toISOString();
+    const record = {
+      recordType: 'ARWEAVE_TELEMETRY',
+      deviceId,
+      arweaveTxId,
+      signature,
+      payloadHash,
+      timestamp,
+      txId: ctx.stub ? ctx.stub.getTxID() : 'LOCAL_TX_' + Date.now()
+    };
+
+    const deviceKey = `DEVICE_ARWEAVE_${deviceId}`;
+    const existingBytes = ctx.stub ? await ctx.stub.getState(deviceKey) : null;
+    let records = existingBytes && existingBytes.length > 0 ? JSON.parse(existingBytes.toString()) : [];
+    records.push(record);
+
+    if (ctx.stub) {
+      await ctx.stub.putState(deviceKey, Buffer.from(JSON.stringify(records)));
+      await ctx.stub.putState(`ARWEAVE_TX_${arweaveTxId}`, Buffer.from(JSON.stringify(record)));
+    }
+
+    return JSON.stringify(record);
+  }
+
+  async VerifySignature(ctx, publicKeyDerHex, payloadHash, signatureHex) {
+    try {
+      const verifier = crypto.createVerify('SHA256');
+      verifier.update(payloadHash);
+      verifier.end();
+      const pubKeyBuffer = Buffer.from(publicKeyDerHex, 'hex');
+      const isValid = verifier.verify(pubKeyBuffer, signatureHex, 'hex');
+      return JSON.stringify({ valid: isValid, publicKeyHash: crypto.createHash('sha256').update(publicKeyDerHex).digest('hex') });
+    } catch (err) {
+      return JSON.stringify({ valid: false, error: err.message });
+    }
+  }
+
   async VerifyLedgerIntegrity(ctx) {
     const latestIndexBytes = await ctx.stub.getState('LATEST_BLOCK_INDEX');
     const total = latestIndexBytes ? parseInt(latestIndexBytes.toString(), 10) + 1 : 0;

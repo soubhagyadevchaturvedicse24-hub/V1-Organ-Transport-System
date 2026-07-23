@@ -22,7 +22,7 @@ import {
   LineChart, Line,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from 'recharts';
-import { getAllBlocks, verifyLedger } from '../services/api';
+import { getAllBlocks, verifyLedger, fetchArweaveData } from '../services/api';
 import styles from './BlockchainAudit.module.css';
 
 const getHumanReadableType = (type) => {
@@ -432,16 +432,42 @@ const BlockchainAudit = () => {
                               <code className={styles.detailValue}>{block.previousHash || 'Genesis Block'}</code>
                             </div>
                             {block.arweaveTxId && (
-                              <div className={styles.detailRow}>
-                                <span className={styles.detailLabel}>Immutable Storage (Arweave):</span>
-                                <a 
-                                  href={`https://gateway.irys.xyz/${block.arweaveTxId}`} 
-                                  target="_blank" 
-                                  rel="noopener noreferrer"
-                                  className={styles.arweaveLink}
-                                >
-                                  {block.arweaveTxId} <ExternalLink size={12} />
-                                </a>
+                              <div className={styles.detailRowColumn}>
+                                <span className={styles.detailLabel}>Immutable Storage (Arweave Permaweb):</span>
+                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '4px' }}>
+                                  <a 
+                                    href={`https://gateway.irys.xyz/${block.arweaveTxId}`} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className={styles.arweaveLink}
+                                  >
+                                    🌐 Gateway: {block.arweaveTxId} <ExternalLink size={12} />
+                                  </a>
+                                  <button
+                                    onClick={async () => {
+                                      try {
+                                        const arData = await fetchArweaveData(block.arweaveTxId);
+                                        alert(`Fetched directly from Arweave Permaweb:\n\n${JSON.stringify(arData, null, 2)}`);
+                                      } catch (err) {
+                                        alert(`Arweave Gateway notice: ${err.message}`);
+                                      }
+                                    }}
+                                    style={{
+                                      background: 'rgba(34, 211, 160, 0.15)',
+                                      border: '1px solid rgba(34, 211, 160, 0.3)',
+                                      color: '#22d3a0',
+                                      padding: '2px 8px',
+                                      borderRadius: '4px',
+                                      fontSize: '11px',
+                                      cursor: 'pointer',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '4px'
+                                    }}
+                                  >
+                                    <ExternalLink size={10} /> Direct Fetch & Verify
+                                  </button>
+                                </div>
                               </div>
                             )}
                             {block.payload && (

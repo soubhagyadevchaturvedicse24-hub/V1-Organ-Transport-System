@@ -29,6 +29,7 @@ export const logTelemetry = async (boxId, missionId, payload) => {
   const log = new TelemetryLog({
     boxId: mongoose.Types.ObjectId.isValid(boxId) ? boxId : new mongoose.Types.ObjectId(),
     missionId: mongoose.Types.ObjectId.isValid(resolvedMissionId) ? resolvedMissionId : new mongoose.Types.ObjectId(),
+    arweaveTxId: payload.arweaveTxId || null,
     telemetry: {
       temperature: payload.temperature,
       batteryLevel: payload.batteryLevel,

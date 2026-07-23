@@ -8,6 +8,22 @@ import {
 import { getMatches } from '../services/api';
 import styles from './CommitteeApproval.module.css';
 
+/* Safely extract a displayable string from a value that might be a
+   populated MongoDB sub-document, an ObjectId string, or a plain string. */
+const safeStr = (val, fallback = '—') => {
+  if (val === null || val === undefined) return fallback;
+  if (typeof val === 'string') return val || fallback;
+  if (typeof val === 'number' || typeof val === 'boolean') return String(val);
+  // Populated object — try common identifier fields
+  if (typeof val === 'object' && !Array.isArray(val)) {
+    return (
+      val.name || val.donorId || val.organId || val.recipientId ||
+      val.hospitalId || val._id?.toString() || fallback
+    );
+  }
+  return fallback;
+};
+
 /* Simulated Committee Vetting Applications derived from matches/donors */
 const RULE6_CHECKLIST = [
   { key: 'joint_app',      label: 'Joint Application Submitted (Form 10/11)', ref: 'Rule 6(1)' },
@@ -170,9 +186,9 @@ const CommitteeApproval = () => {
                 id: `${match._id}-${rec.recipientId?._id}`,
                 matchId: match._id,
                 recipientDbId: rec.recipientId?._id,
-                organType: match.organId?.organType || 'Organ',
-                donorName: match.organId?.donorId || 'Platform Donor',
-                recipientName: rec.recipientId?.recipientId || 'Platform Recipient',
+                organType: safeStr(match.organId?.organType, 'Organ'),
+                donorName: safeStr(match.organId?.donorId, 'Platform Donor'),
+                recipientName: safeStr(rec.recipientId?.recipientId, 'Platform Recipient'),
                 hospital: 'Registered Hospital',
                 relationship: 'AI System Match',
                 status: rec.status === 'ACCEPTED' ? 'APPROVED' : rec.status === 'REJECTED' ? 'REJECTED' : 'UNDER_REVIEW',

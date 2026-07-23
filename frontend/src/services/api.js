@@ -65,6 +65,31 @@ export const getEntityHistory = (type, id) => fetchApi(`/audit/entity/${type}/${
 export const getAllBlocks = () => fetchApi('/audit/blocks');
 export const verifyBlock = (blockIndex) => fetchApi(`/audit/verify-block/${blockIndex}`);
 
+/**
+ * Direct Arweave Permaweb Data Fetcher via Irys / Arweave Public Gateways
+ */
+export const fetchArweaveData = async (txId) => {
+  if (!txId || txId === 'none' || txId.startsWith('ar_')) {
+    throw new Error('Invalid or emulated Arweave Transaction ID');
+  }
+  const gateways = [
+    `https://gateway.irys.xyz/${txId}`,
+    `https://arweave.net/${txId}`
+  ];
+
+  for (const url of gateways) {
+    try {
+      const res = await fetch(url);
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch (e) {
+      console.warn(`Gateway fetch failed for ${url}: ${e.message}`);
+    }
+  }
+  throw new Error(`Failed to fetch Arweave data for TX ID ${txId} from permaweb gateways.`);
+};
+
 export const getMatches = () => fetchApi('/matching');
 
 export const updateMatchStatus = (matchId, recipientId, action) => {
