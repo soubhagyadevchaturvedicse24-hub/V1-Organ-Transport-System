@@ -50,13 +50,9 @@ async function uploadToIrysDevnet(payloadString) {
   try {
     let IrysSdk;
     try {
-      IrysSdk = require('../../backend/node_modules/@irys/sdk');
+      IrysSdk = require('@irys/sdk');
     } catch {
-      try {
-        IrysSdk = require('@irys/sdk');
-      } catch {
-        IrysSdk = null;
-      }
+      IrysSdk = null;
     }
 
     if (IrysSdk) {

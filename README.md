@@ -50,27 +50,41 @@ The platform utilizes a modular **Monorepo** architecture powered by an **Event-
 
 ### System Workflow Diagram (End-to-End)
 
-```text
-Donor Hospital            NOTTO / SOTTO           Surgeon / Matching           IoT Box Transit            Recipient Hospital
-    │                         │                         │                            │                         │
-    ├─► Register Donor ───────┼─────────────────────────┼────────────────────────────┼─────────────────────────┤
-    │   (Consent Verified)    │                         │                            │                         │
-    │                         ├─► Medical Assessment ───┼────────────────────────────┼─────────────────────────┤
-    │                         │   (Viability Approved)  │                            │                         │
-    │                         │                         ├─► Run AI Matching Algorithm│                         │
-    │                         │                         │   (Rank Recipients)        │                         │
-    │                         │                         ├─► Accept Match ────────────┼─────────────────────────┤
-    │                         │                         │   (Assign Mission)         │                         │
-    │                         │                         │                            ├─► Telemetry Pings ──────┤
-    │                         │                         │                            │   (Temp, GPS, Tamper)   │
-    │                         │                         │                            ├─► Arrived at Destination│
-    └─────────────────────────┴─────────────────────────┴────────────────────────────┴─────────────────────────┘
-                                           │
-                                           ▼
-                             [ Immutable Blockchain Event Log ]
+```mermaid
+sequenceDiagram
+    participant DH as Donor Hospital
+    participant NS as NOTTO/SOTTO
+    participant MA as AI Matching
+    participant IOT as IoT Edge (Simulator)
+    participant AW as Arweave (Irys Devnet)
+    participant SC as Smart Contract
+    participant RH as Recipient Hospital
+    
+    DH->>NS: Register Donor & Consent
+    NS->>DH: Approve Viability
+    NS->>MA: Run AI Match
+    MA->>RH: Recommend Recipient
+    RH->>MA: Accept Match & Dispatch Box
+    loop Every 5 Seconds (Transit)
+        IOT->>AW: Upload Signed Telemetry Data
+        AW-->>IOT: Return Arweave TX ID
+        IOT->>SC: Submit TX ID + ECDSA Signature
+        SC->>SC: Verify secp256k1 Signature
+        SC-->>RH: Emit Verified Telemetry Event (WebSockets)
+    end
+    IOT->>RH: Transport Arrived
 ```
 
----
+### 🌐 Decentralized Telemetry & Irys Devnet Setup
+
+This platform uses **Irys Devnet** to upload telemetry data directly to the Arweave Permaweb from the edge devices, ensuring immutable, decentralized audit trails that are cryptographically verified by the smart contract.
+
+**Setup Instructions:**
+1. Generate an Ethereum Private Key (or use an existing testnet wallet).
+2. Set `IRYS_PRIVATE_KEY=your_private_key_here` in the `.env` file of the simulation or backend.
+3. The simulator will automatically connect to `https://rpc.sepolia.org` and upload telemetry JSON objects.
+4. Smart Contract verifies the ECDSA signature before persisting the `Arweave TX ID` to the ledger.
+
 
 ## 💻 Tech Stack
 

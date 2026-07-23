@@ -82,14 +82,31 @@ class OrganContract extends Contract {
     return historyBytes.toString();
   }
 
-  async RecordArweaveTelemetry(ctx, deviceId, arweaveTxId, signature, payloadHash) {
+  async RecordArweaveTelemetry(ctx, deviceId, arweaveTxId, signature, payloadString, publicKeyDerHex) {
     const timestamp = new Date().toISOString();
+    
+    // Verify ECDSA signature
+    let isValidSignature = false;
+    try {
+      const verifier = crypto.createVerify('SHA256');
+      verifier.update(payloadString);
+      verifier.end();
+      const pubKeyBuffer = Buffer.from(publicKeyDerHex, 'hex');
+      isValidSignature = verifier.verify(pubKeyBuffer, signature, 'hex');
+    } catch (err) {
+      console.error('Signature verification failed:', err.message);
+    }
+
+    if (!isValidSignature) {
+      throw new Error(`Invalid ECDSA signature for device ${deviceId}`);
+    }
+
     const record = {
       recordType: 'ARWEAVE_TELEMETRY',
       deviceId,
       arweaveTxId,
       signature,
-      payloadHash,
+      signatureValid: true,
       timestamp,
       txId: ctx.stub ? ctx.stub.getTxID() : 'LOCAL_TX_' + Date.now()
     };

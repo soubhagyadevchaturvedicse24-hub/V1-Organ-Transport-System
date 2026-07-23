@@ -59,7 +59,8 @@ export const logTelemetry = async (boxId, missionId, payload) => {
     boxId,
     missionId: resolvedMissionId,
     telemetry: log.telemetry,
-    location: log.telemetry.geoLocation
+    location: log.telemetry.geoLocation,
+    arweaveTxId: log.arweaveTxId
   });
 
   // Evaluate thresholds and emit alerts if necessary

@@ -372,6 +372,7 @@ const TransportMap = () => {
             temperature: payload.temperature ?? prev.telemetry?.temperature,
             batteryLevel: payload.batteryLevel ?? prev.telemetry?.batteryLevel,
             isTampered: payload.isTampered ?? prev.telemetry?.isTampered,
+            arweaveTxId: payload.arweaveTxId ?? prev.telemetry?.arweaveTxId,
           },
           trail,
         };
@@ -801,6 +802,38 @@ const TransportMap = () => {
                   </div>
                 </div>
               </div>
+
+              {/* Arweave Telemetry Verification */}
+              {telemetry.arweaveTxId && (
+                <div className={`glass-panel ${styles.card}`}>
+                  <div className={styles.cardHead}>
+                    <Database size={15} style={{ color: '#22d3a0' }} />
+                    <h3>Decentralized Telemetry</h3>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>
+                      Immutable data stored on Arweave Permaweb via Irys Devnet.
+                    </div>
+                    <div className="mono" style={{ fontSize: '0.7rem', wordBreak: 'break-all', background: 'rgba(0,0,0,0.2)', padding: '6px', borderRadius: '4px' }}>
+                      TX: {telemetry.arweaveTxId}
+                    </div>
+                    <a
+                      href={`https://gateway.irys.xyz/${telemetry.arweaveTxId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={styles.arweaveLink}
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: '6px',
+                        background: 'rgba(34, 211, 160, 0.1)', border: '1px solid rgba(34, 211, 160, 0.2)',
+                        color: '#22d3a0', padding: '6px 12px', borderRadius: '6px', fontSize: '0.75rem',
+                        textDecoration: 'none', justifyContent: 'center', marginTop: '4px'
+                      }}
+                    >
+                      <Database size={12} /> View Raw on Gateway
+                    </a>
+                  </div>
+                </div>
+              )}
             </>
           ) : (
             <div className={`glass-panel ${styles.card}`} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-tertiary)' }}>
